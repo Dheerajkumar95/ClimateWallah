@@ -16,6 +16,11 @@ export default function Homepage() {
 
   useEffect(() => { api.get("/admin/homepage").then((r) => setForm(r.data || {})).catch(() => setForm({})); }, []);
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+  const toggleSection = (key) => setForm((s) => {
+    const sec = s.sections || {};
+    const cur = sec[key] !== false;
+    return { ...s, sections: { ...sec, [key]: !cur } };
+  });
 
   const save = async () => {
     setSaving(true);
@@ -102,13 +107,32 @@ export default function Homepage() {
         </Card>
 
         <Card title="Section Visibility">
-          <div className="grid sm:grid-cols-2 gap-3">
-            {SECTIONS.map(([key, label]) => (
-              <div key={key} className="flex items-center justify-between bg-warm-beige/40 rounded-lg px-4 py-3">
-                <span className="text-sm text-charcoal/80">{label}</span>
-                <Toggle checked={sections[key] !== false} onChange={(v) => set("sections", { ...sections, [key]: v })} />
-              </div>
-            ))}
+          <p className="text-sm text-charcoal/55 -mt-2">Turn homepage sections on or off, then click <span className="font-medium text-charcoal/80">Save changes</span> above. Green = shown on the public homepage.</p>
+          <div className="grid sm:grid-cols-2 gap-3" data-testid="section-visibility">
+            {SECTIONS.map(([key, label]) => {
+              const on = sections[key] !== false;
+              return (
+                <div
+                  role="switch"
+                  tabIndex={0}
+                  key={key}
+                  onClick={() => toggleSection(key)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSection(key); } }}
+                  data-testid={`section-toggle-${key}`}
+                  aria-checked={on}
+                  className={`cursor-pointer select-none flex items-center justify-between rounded-lg px-4 py-3 border transition-colors ${on ? "bg-light-mint/50 border-natural-green/40" : "bg-warm-beige/40 border-border"}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className={`h-2.5 w-2.5 rounded-full ${on ? "bg-natural-green" : "bg-charcoal/30"}`} />
+                    <span className="text-sm text-charcoal/85">{label}</span>
+                    <span className={`text-[11px] font-medium uppercase tracking-wide ${on ? "text-natural-green" : "text-charcoal/40"}`}>{on ? "Shown" : "Hidden"}</span>
+                  </span>
+                  <span className={`h-7 w-12 rounded-full relative shrink-0 transition-colors ${on ? "bg-natural-green" : "bg-charcoal/25"}`}>
+                    <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? "translate-x-5" : "translate-x-0"}`} />
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </Card>
       </div>

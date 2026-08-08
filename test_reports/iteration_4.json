@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend-only regression for Admin Homepage 'Section Visibility'. All 9 toggles (services, mission, values, featured_projects, credentials, why_choose, team, blog, contact_cta) flip exactly once on a single click (aria-checked true<->false). Persistence verified: toggled 'team' off, clicked save-homepage, reloaded /admin/homepage — state persisted (false). Public homepage (/) then no longer shows the Team section (h2 'Team' heading count went from 1 to 0) while [data-testid=home-services] and [data-testid=certification-band] still render. Restored team to Shown, saved — team heading reappears on public homepage. Login by 'admin' works (redirects to /admin/dashboard). Toggle switches render as pill switches with sliding white knob (green on / grey off) and Shown/Hidden label + status dot; look correct and are clickable.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public homepage sections", "issues": ["No data-testid on the Team, Mission/Values, Why-Choose, Featured Projects, Blog and Contact CTA section wrappers on the public /. Only home-services, home-projects, certification-band, home-contact-cta and home-page exist. Adding data-testid=home-team, home-mission, home-values, home-why-choose, home-blog would make section-visibility gating verifiable via testids (currently had to fall back to h2 text)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: add data-testid attributes on remaining public homepage sections (home-team, home-mission, home-values, home-why-choose, home-blog, home-featured-projects) for cleaner automated testing."
+  ],
+  "critical_code_review_comments": [
+    "toggleSection uses functional setState + `cur = sec[key] !== false` correctly avoids stale-closure / double-toggle. Verified single-click flip on all 9 rows.",
+    "Row is a plain div with role=switch, tabIndex=0 and keyboard handler for Enter/Space — accessible and no nested-button issue.",
+    "Public Home.jsx gating pattern `home.sections[key] !== false` is safe (defaults undefined -> shown)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100%"},
+  "test_credentials": "admin / ResAdmin@2026 (or admin@resilientearth.in)",
+  "seed_data_creation": "None. Left all sections back to Shown/true (saved).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Section Visibility toggles fully working and persisting. Backend PUT /api/admin/homepage and GET /api/public/home handle the sections object. Public site currently has all sections shown. If adding new sections, follow the same key pattern and gate in Home.jsx with `home.sections[key] !== false`. Note: some public sections lack data-testid (see design_issues).",
+  "rca of the issue": "Previously (a) leftover false values in DB persisted hidden sections and (b) an intermediate implementation used nested buttons/non-functional state updates causing double-toggle. Fix uses a single clickable div (role=switch) with functional setState — click handler flips once. Verified aria-checked toggles cleanly with a single click for all 9 keys."
+}

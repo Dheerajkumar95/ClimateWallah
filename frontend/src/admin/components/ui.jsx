@@ -44,9 +44,15 @@ export function Select({ value, onChange, options, ...props }) {
 
 export function Toggle({ checked, onChange, label }) {
   return (
-    <button type="button" onClick={() => onChange(!checked)} className="inline-flex items-center gap-2">
-      <span className={`h-6 w-11 rounded-full transition-colors relative ${checked ? "bg-natural-green" : "bg-charcoal/20"}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="inline-flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-natural-green rounded-full"
+    >
+      <span className={`h-7 w-12 rounded-full transition-colors relative shrink-0 ${checked ? "bg-natural-green" : "bg-charcoal/25"}`}>
+        <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
       </span>
       {label && <span className="text-sm text-charcoal/80">{label}</span>}
     </button>
