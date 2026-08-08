@@ -8,8 +8,9 @@ const LINKS = [
   { to: "/", label: "Home" },
   { to: "/about", label: "About" },
   { to: "/services", label: "Services" },
+  { to: "/industries", label: "Industries" },
   { to: "/projects", label: "Projects" },
-  { to: "/team", label: "Team" },
+  { to: "/resources", label: "Resources" },
   { to: "/blog", label: "Insights" },
   { to: "/contact", label: "Contact" },
 ];
@@ -71,11 +72,11 @@ export function Navbar() {
 
           <div className="flex items-center gap-3">
             <Link
-              to="/contact"
+              to="/book"
               data-testid="navbar-cta"
               className="hidden lg:inline-flex items-center rounded-full bg-deep-forest-green text-off-white px-6 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"
             >
-              Get in touch
+              Book Consultation
             </Link>
             <button
               className={`lg:hidden ${textColor}`}

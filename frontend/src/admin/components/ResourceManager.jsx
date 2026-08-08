@@ -1,8 +1,34 @@
-import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { Plus, Pencil, Trash2, Search, Upload, Loader2 } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Btn, Field, TextInput, TextArea, Select, Toggle, Modal, ConfirmDialog, ImagePicker, TagsEditor, Loader, Empty } from "./ui";
+
+function DocumentField({ label, value, onChange }) {
+  const [up, setUp] = useState(false);
+  const ref = useRef();
+  const upload = async (file) => {
+    if (!file) return;
+    setUp(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post("/admin/uploads/document", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      onChange(data.url);
+      toast.success("Document uploaded");
+    } catch (e) { toast.error(apiError(e.response?.data?.detail)); }
+    finally { setUp(false); }
+  };
+  return (
+    <Field label={label} help="Upload a PDF or DOCX, or paste a URL.">
+      <div className="flex gap-2">
+        <TextInput value={value} onChange={onChange} placeholder="Document URL" />
+        <Btn variant="outline" type="button" onClick={() => ref.current?.click()} disabled={up}>{up ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}</Btn>
+        <input ref={ref} type="file" accept=".pdf,.docx,.doc" className="hidden" onChange={(e) => upload(e.target.files[0])} />
+      </div>
+    </Field>
+  );
+}
 
 function FieldRenderer({ field, value, onChange }) {
   const { type, label, help, options } = field;
@@ -15,6 +41,8 @@ function FieldRenderer({ field, value, onChange }) {
       return <Field label={label} help={help}><TextInput type="number" value={value} onChange={(v) => onChange(v === "" ? "" : Number(v))} /></Field>;
     case "image":
       return <ImagePicker label={label} value={value} onChange={onChange} />;
+    case "document":
+      return <DocumentField label={label} value={value} onChange={onChange} />;
     case "switch":
       return <div className="py-1"><Field label={label} help={help}><Toggle checked={!!value} onChange={onChange} /></Field></div>;
     case "select":

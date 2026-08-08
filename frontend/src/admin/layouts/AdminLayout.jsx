@@ -3,19 +3,31 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Home, Info, Wrench, FolderKanban, Users, FileText, Mail,
   Image, FileDown, Settings, Search, Scale, KeyRound, LogOut, Menu, X, Leaf, ChevronRight,
+  Building2, Workflow, Compass, Gauge, BookOpen, Handshake, CalendarDays, CalendarCheck, UserSquare,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 const NAV = [
   { to: "/admin/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { to: "/admin/leads", label: "Leads", Icon: UserSquare },
+  { to: "/admin/bookings", label: "Bookings", Icon: CalendarCheck },
+  { to: "/admin/enquiries", label: "Enquiries", Icon: Mail },
   { to: "/admin/homepage", label: "Homepage", Icon: Home },
   { to: "/admin/about", label: "About", Icon: Info },
   { to: "/admin/services", label: "Services", Icon: Wrench },
+  { to: "/admin/industries", label: "Industries", Icon: Building2 },
+  { to: "/admin/methodology", label: "Methodology", Icon: Workflow },
   { to: "/admin/projects", label: "Projects", Icon: FolderKanban },
   { to: "/admin/team", label: "Team", Icon: Users },
+  { to: "/admin/certification-rules", label: "Certification Rules", Icon: Compass },
+  { to: "/admin/certification-results", label: "Finder Results", Icon: Compass },
+  { to: "/admin/assessment-questions", label: "Assessment Questions", Icon: Gauge },
+  { to: "/admin/assessment-results", label: "Assessment Results", Icon: Gauge },
+  { to: "/admin/resources", label: "Resources", Icon: BookOpen },
+  { to: "/admin/partners", label: "Partners", Icon: Handshake },
+  { to: "/admin/events", label: "Events", Icon: CalendarDays },
   { to: "/admin/blog", label: "Blog", Icon: FileText },
-  { to: "/admin/enquiries", label: "Enquiries", Icon: Mail },
   { to: "/admin/media", label: "Media", Icon: Image },
   { to: "/admin/capability", label: "Capability PDF", Icon: FileDown },
   { to: "/admin/settings", label: "Website Settings", Icon: Settings },

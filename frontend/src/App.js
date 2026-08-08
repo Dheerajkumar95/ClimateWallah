@@ -19,7 +19,14 @@ import BlogDetail from "@/pages/BlogDetail";
 import Contact from "@/pages/Contact";
 import Legal from "@/pages/Legal";
 import Capability from "@/pages/Capability";
+import Book from "@/pages/Book";
+import CertificationFinder from "@/pages/CertificationFinder";
+import Assessment from "@/pages/Assessment";
+import Industries from "@/pages/Industries";
+import IndustryDetail from "@/pages/IndustryDetail";
+import Resources from "@/pages/Resources";
 import NotFound from "@/pages/NotFound";
+import { FloatingActions } from "@/components/site/FloatingActions";
 
 import { ProtectedRoute } from "@/admin/components/ProtectedRoute";
 import { AdminLayout } from "@/admin/layouts/AdminLayout";
@@ -38,6 +45,13 @@ import Settings from "@/admin/pages/Settings";
 import Seo from "@/admin/pages/Seo";
 import LegalAdmin from "@/admin/pages/LegalAdmin";
 import ChangePassword from "@/admin/pages/ChangePassword";
+import IndustriesAdmin from "@/admin/pages/IndustriesAdmin";
+import MethodologyAdmin from "@/admin/pages/MethodologyAdmin";
+import ResourcesAdmin from "@/admin/pages/ResourcesAdmin";
+import { PartnersAdmin, EventsAdmin, CertificationRulesAdmin, AssessmentQuestionsAdmin } from "@/admin/pages/ContentAdmins";
+import Leads from "@/admin/pages/Leads";
+import Bookings from "@/admin/pages/Bookings";
+import { AssessmentResults, CertificationResults } from "@/admin/pages/Results";
 import { Navigate } from "react-router-dom";
 
 function App() {
@@ -46,6 +60,7 @@ function App() {
       <AuthProvider>
         <SettingsProvider>
           <Toaster position="top-right" richColors />
+          <FloatingActions />
           <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Home />} />
@@ -59,6 +74,12 @@ function App() {
               <Route path="/blog/:slug" element={<BlogDetail />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/capability-profile" element={<Capability />} />
+              <Route path="/book" element={<Book />} />
+              <Route path="/certification-finder" element={<CertificationFinder />} />
+              <Route path="/assessment" element={<Assessment />} />
+              <Route path="/industries" element={<Industries />} />
+              <Route path="/industries/:slug" element={<IndustryDetail />} />
+              <Route path="/resources" element={<Resources />} />
               <Route path="/legal/:slug" element={<Legal />} />
               <Route path="*" element={<NotFound />} />
             </Route>
@@ -72,6 +93,17 @@ function App() {
               <Route path="services" element={<ServicesAdmin />} />
               <Route path="projects" element={<ProjectsAdmin />} />
               <Route path="team" element={<TeamAdmin />} />
+              <Route path="industries" element={<IndustriesAdmin />} />
+              <Route path="methodology" element={<MethodologyAdmin />} />
+              <Route path="certification-rules" element={<CertificationRulesAdmin />} />
+              <Route path="assessment-questions" element={<AssessmentQuestionsAdmin />} />
+              <Route path="assessment-results" element={<AssessmentResults />} />
+              <Route path="certification-results" element={<CertificationResults />} />
+              <Route path="resources" element={<ResourcesAdmin />} />
+              <Route path="partners" element={<PartnersAdmin />} />
+              <Route path="events" element={<EventsAdmin />} />
+              <Route path="bookings" element={<Bookings />} />
+              <Route path="leads" element={<Leads />} />
               <Route path="blog" element={<BlogAdmin />} />
               <Route path="enquiries" element={<Enquiries />} />
               <Route path="media" element={<Media />} />

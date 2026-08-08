@@ -303,3 +303,130 @@ async def seed_content():
 async def run_seed():
     await seed_admin()
     await seed_content()
+    await seed_phase1()
+
+
+INDUSTRIES = [
+    ("Real Estate Developers", "Maximise asset value and marketability with certified, high-performance developments.", ["Rising expectations for green certified assets", "Balancing capex with long-term operating savings", "Meeting evolving building codes"]),
+    ("Corporate Offices", "Create healthy, efficient workplaces that support ESG goals and employee wellbeing.", ["Occupant health and productivity", "Energy and operating cost control", "Corporate ESG and reporting commitments"]),
+    ("Data Centres", "Optimise energy and water performance for mission-critical, high-density facilities.", ["Very high energy and cooling demand", "Water use and efficiency (PUE/WUE)", "Reliability alongside sustainability"]),
+    ("Hotels & Hospitality", "Deliver guest comfort and brand sustainability commitments with lower operating costs.", ["High energy and water consumption", "Guest comfort and indoor air quality", "Brand sustainability standards"]),
+    ("Manufacturing & Industrial", "Improve resource efficiency and compliance across energy, water and waste.", ["Process energy intensity", "Waste and water management", "Regulatory and ESG compliance"]),
+    ("Architects & Project Consultants", "Integrate sustainability early to unlock certification and design efficiencies.", ["Early-stage sustainability integration", "Certification documentation burden", "Coordinating multiple stakeholders"]),
+    ("Educational Institutions", "Build healthy learning environments that demonstrate environmental leadership.", ["Indoor environmental quality for learning", "Campus-wide energy and water use", "Demonstrating environmental leadership"]),
+    ("Healthcare Buildings", "Balance stringent operational needs with energy efficiency and occupant health.", ["24x7 critical operations", "Air quality and infection control", "High energy and water demand"]),
+]
+
+METHODOLOGY = [
+    ("Initial Consultation", "We understand your goals, constraints and vision for the project.", "messages-square"),
+    ("Site & Data Assessment", "We gather building data, drawings and operational information.", "clipboard-list"),
+    ("Gap Analysis", "We benchmark current performance against target frameworks and standards.", "search-check"),
+    ("Sustainability Roadmap", "We define a prioritised, budget-aware pathway to your goals.", "route"),
+    ("Implementation Support", "We support design and construction teams through delivery.", "hammer"),
+    ("Audit & Certification Support", "We manage documentation and liaise with rating bodies.", "badge-check"),
+    ("Monitoring & Improvement", "We track performance and drive continuous improvement.", "line-chart"),
+]
+
+CERT_RULES = [
+    ("LEED", "A globally recognised green building rating system covering energy, water, materials and indoor quality.",
+     ["Corporate Offices", "Data Centres", "Hotels & Hospitality", "Real Estate Developers", "Manufacturing & Industrial"],
+     ["New Construction", "Existing Building", "Interiors"],
+     ["Energy Efficiency", "Water Efficiency", "Indoor Air Quality", "Global Recognition"]),
+    ("IGBC", "India's leading green building rating system, well-suited to Indian climate and regulatory context.",
+     ["Real Estate Developers", "Corporate Offices", "Manufacturing & Industrial", "Data Centres", "Healthcare Buildings"],
+     ["New Construction", "Existing Building"],
+     ["Energy Efficiency", "Water Efficiency", "Local Context"]),
+    ("GRIHA", "A national rating system emphasising integrated habitat and resource efficiency.",
+     ["Educational Institutions", "Real Estate Developers", "Corporate Offices"],
+     ["New Construction"],
+     ["Water Efficiency", "Waste Management", "Local Context"]),
+    ("EDGE", "A fast, cost-effective certification focused on resource-efficiency savings.",
+     ["Real Estate Developers", "Hotels & Hospitality", "Corporate Offices"],
+     ["New Construction"],
+     ["Energy Efficiency", "Water Efficiency", "Cost Effectiveness"]),
+    ("WELL", "A standard focused on human health and wellbeing in the built environment.",
+     ["Corporate Offices", "Healthcare Buildings", "Educational Institutions"],
+     ["New Construction", "Existing Building", "Interiors"],
+     ["Indoor Air Quality", "Health & Wellness"]),
+    ("TRUE", "A certification for zero-waste operations and materials management.",
+     ["Manufacturing & Industrial", "Corporate Offices"],
+     ["Existing Building"],
+     ["Waste Management"]),
+    ("WiredScore", "A certification for digital connectivity and smart building readiness.",
+     ["Corporate Offices", "Real Estate Developers", "Data Centres"],
+     ["New Construction", "Existing Building"],
+     ["Smart Building", "Connectivity"]),
+]
+
+ASSESS_CATS = [
+    ("Governance & Strategy", "Do you have a formal sustainability strategy with ownership and targets?"),
+    ("Energy Management", "How mature is your energy monitoring and efficiency programme?"),
+    ("Water Management", "How well do you measure and manage water consumption?"),
+    ("Waste Management", "How mature is your waste segregation, tracking and diversion?"),
+    ("Indoor Environmental Quality", "How actively do you manage air quality, lighting and comfort?"),
+    ("Carbon & Climate Reporting", "How advanced is your GHG accounting and climate disclosure?"),
+    ("Green Building Readiness", "How prepared are your buildings for green certification?"),
+]
+ASSESS_OPTIONS = [
+    ("No formal approach in place", 0),
+    ("Basic / ad-hoc efforts", 1.33),
+    ("Established processes", 2.67),
+    ("Advanced / industry-leading", 4),
+]
+
+
+async def seed_phase1():
+    if await db.industries.count_documents({}) == 0:
+        for i, (title, intro, challenges) in enumerate(INDUSTRIES):
+            await db.industries.insert_one({
+                "id": str(uuid.uuid4()), "slug": _slug(title), "title": title, "intro": intro,
+                "challenges": challenges,
+                "solutions": ["Tailored certification pathway", "Energy, water & waste optimisation", "Sustainability roadmap & reporting"],
+                "related_services": [], "image": PROJECT_IMAGES[i % len(PROJECT_IMAGES)],
+                "display_order": i, "active": True,
+                "seo_title": f"Sustainability for {title} | RES", "seo_description": intro,
+                "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    if await db.methodology_steps.count_documents({}) == 0:
+        for i, (title, desc, icon) in enumerate(METHODOLOGY):
+            await db.methodology_steps.insert_one({
+                "id": str(uuid.uuid4()), "title": title, "description": desc, "icon": icon,
+                "display_order": i, "active": True, "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    if await db.certification_rules.count_documents({}) == 0:
+        for i, (fw, blurb, bt, ct, pr) in enumerate(CERT_RULES):
+            await db.certification_rules.insert_one({
+                "id": str(uuid.uuid4()), "framework": fw, "blurb": blurb,
+                "building_types": bt, "construction_types": ct, "priorities": pr,
+                "display_order": i, "active": True, "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    if await db.assessment_questions.count_documents({}) == 0:
+        for i, (cat, text) in enumerate(ASSESS_CATS):
+            await db.assessment_questions.insert_one({
+                "id": str(uuid.uuid4()), "category": cat, "text": text,
+                "options": [{"label": lbl, "score": sc} for lbl, sc in ASSESS_OPTIONS],
+                "weight": 1, "display_order": i, "active": True,
+                "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    if await db.partners.count_documents({}) == 0:
+        for i, name in enumerate(COLLABORATIONS):
+            await db.partners.insert_one({
+                "id": str(uuid.uuid4()), "name": name, "logo": "", "partner_type": "Industry Collaboration",
+                "website_url": "", "description": "", "display_order": i, "active": True,
+                "created_at": now_iso(), "updated_at": now_iso(),
+            })
+
+    if await db.resources.count_documents({}) == 0:
+        await db.resources.insert_one({
+            "id": str(uuid.uuid4()), "slug": "res-capability-profile", "title": "RES Capability Profile",
+            "category": "Capability Profile",
+            "short_description": "An overview of Resilient Earth Solutions' sustainability consulting capabilities.",
+            "thumbnail": "https://images.unsplash.com/photo-1556983852-43bf21186b2a",
+            "file_url": "", "require_lead": False, "featured": True, "status": "published",
+            "download_count": 0, "display_order": 0, "created_at": now_iso(), "updated_at": now_iso(),
+        })
+

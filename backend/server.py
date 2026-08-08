@@ -192,11 +192,405 @@ class ReorderInput(BaseModel):
 
 @api.patch("/admin/{coll}/reorder/apply")
 async def reorder(coll: str, data: ReorderInput, admin: dict = Depends(admin_write)):
-    if coll not in ("services", "projects", "team_members", "blog_posts"):
+    if coll not in ("services", "projects", "team_members", "blog_posts", "industries", "methodology_steps", "resources", "partners", "events", "certification_rules", "assessment_questions"):
         raise HTTPException(400, "Invalid collection")
     for i, _id in enumerate(data.ids):
         await db[coll].update_one({"id": _id}, {"$set": {"display_order": i}})
     return {"message": "Reordered"}
+
+
+# ==================== PHASE 1: LEADS + MODULES ====================
+async def create_lead(source, data, service=None):
+    lead = {
+        "id": str(uuid.uuid4()),
+        "name": data.get("name", ""),
+        "company": data.get("company", ""),
+        "email": (data.get("email", "") or "").lower(),
+        "phone": data.get("phone", ""),
+        "source": source,
+        "interested_service": service or data.get("interested_service") or data.get("service") or "",
+        "message": data.get("message", ""),
+        "status": "New",
+        "admin_note": "",
+        "follow_up_date": "",
+        "utm_source": data.get("utm_source", ""),
+        "utm_medium": data.get("utm_medium", ""),
+        "utm_campaign": data.get("utm_campaign", ""),
+        "ref_id": data.get("ref_id", ""),
+        "created_at": now_iso(),
+    }
+    await db.leads.insert_one(dict(lead))
+    return lead
+
+
+# New content collections (reuse generic CRUD)
+register_crud("industries", slug_field="title")
+register_crud("methodology_steps")
+register_crud("resources", slug_field="title")
+register_crud("partners")
+register_crud("events", slug_field="title")
+register_crud("certification_rules")
+register_crud("assessment_questions")
+
+
+# ---- Generic document upload (PDF/DOCX) for resources & RFP ----
+ALLOWED_DOC = {"application/pdf": ".pdf",
+               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+               "application/msword": ".doc"}
+
+
+@api.post("/admin/uploads/document")
+async def upload_document(file: UploadFile = File(...), admin: dict = Depends(admin_write)):
+    if file.content_type not in ALLOWED_DOC or not file.filename.lower().endswith((".pdf", ".docx", ".doc")):
+        raise HTTPException(400, "Only PDF or DOCX documents are allowed")
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(400, "File too large")
+    fname = f"{uuid.uuid4().hex}{ALLOWED_DOC[file.content_type]}"
+    (DOC_DIR / fname).write_bytes(content)
+    url = f"{BACKEND_URL}/api/uploads/documents/{fname}"
+    return {"url": url, "filename": fname, "original_name": file.filename, "size": len(content)}
+
+
+# ---- Public content endpoints ----
+@api.get("/public/industries")
+async def public_industries():
+    return await db.industries.find({"active": True}, {"_id": 0}).sort("display_order", 1).to_list(100)
+
+
+@api.get("/public/industries/{slug}")
+async def public_industry(slug: str):
+    doc = await db.industries.find_one({"slug": slug, "active": True}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Industry not found")
+    return doc
+
+
+@api.get("/public/methodology")
+async def public_methodology():
+    return await db.methodology_steps.find({"active": True}, {"_id": 0}).sort("display_order", 1).to_list(100)
+
+
+@api.get("/public/partners")
+async def public_partners():
+    return await db.partners.find({"active": True}, {"_id": 0}).sort("display_order", 1).to_list(100)
+
+
+@api.get("/public/events")
+async def public_events():
+    items = await db.events.find({"active": True}, {"_id": 0}).sort("event_date", -1).to_list(200)
+    today = now_iso()
+    upcoming = [e for e in items if (e.get("event_date") or "") >= today]
+    past = [e for e in items if (e.get("event_date") or "") < today]
+    return {"upcoming": sorted(upcoming, key=lambda x: x.get("event_date", "")), "past": past}
+
+
+@api.get("/public/resources")
+async def public_resources(category: Optional[str] = None):
+    q = {"status": "published"}
+    if category and category != "All":
+        q["category"] = category
+    items = await db.resources.find(q, {"_id": 0}).sort("display_order", 1).to_list(500)
+    all_docs = await db.resources.find({"status": "published"}, {"_id": 0, "category": 1}).to_list(500)
+    cats = sorted({d.get("category") for d in all_docs if d.get("category")})
+    return {"items": items, "categories": cats}
+
+
+class ResourceLeadInput(BaseModel):
+    name: Optional[str] = ""
+    email: Optional[str] = ""
+    phone: Optional[str] = ""
+    company: Optional[str] = ""
+
+
+@api.post("/public/resources/{rid}/download")
+async def download_resource(rid: str, data: ResourceLeadInput):
+    doc = await db.resources.find_one({"id": rid, "status": "published"}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Resource not found")
+    await db.resources.update_one({"id": rid}, {"$inc": {"download_count": 1}})
+    if doc.get("require_lead") and data.email:
+        await create_lead("Resource Download", data.model_dump(), service=doc.get("title"))
+    return {"url": doc.get("file_url", "")}
+
+
+# ---- Booking a Discovery / Free Consultation ----
+class BookingInput(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: Optional[str] = ""
+    company: Optional[str] = ""
+    service: Optional[str] = ""
+    project_type: Optional[str] = ""
+    preferred_date: Optional[str] = ""
+    preferred_time: Optional[str] = ""
+    meeting_mode: Optional[str] = ""
+    project_location: Optional[str] = ""
+    message: Optional[str] = ""
+
+
+@api.post("/public/bookings")
+async def create_booking(data: BookingInput, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    since = datetime.now(timezone.utc).timestamp() - 60
+    if await db.bookings.count_documents({"ip": ip, "ts": {"$gt": since}}) >= 3:
+        raise HTTPException(429, "Too many submissions. Please try again shortly.")
+    doc = {"id": str(uuid.uuid4()), **data.model_dump(), "email": data.email.lower(),
+           "status": "New", "admin_note": "", "ip": ip,
+           "ts": datetime.now(timezone.utc).timestamp(), "created_at": now_iso()}
+    await db.bookings.insert_one(dict(doc))
+    await create_lead("Discovery Call", doc, service=data.service)
+    try:
+        await send_enquiry_notification({
+            "name": data.name, "email": data.email, "phone": data.phone, "company": data.company,
+            "subject": "New Discovery Call Booking", "service_of_interest": data.service,
+            "source_page": "Book a Consultation",
+            "message": f"Preferred: {data.preferred_date} {data.preferred_time} | Mode: {data.meeting_mode} | "
+                       f"Type: {data.project_type} | Location: {data.project_location}\n\n{data.message}",
+        })
+    except Exception as e:
+        logger.error(f"booking notify failed: {e}")
+    return {"message": "Thank you. Your consultation request has been received."}
+
+
+@api.get("/admin/bookings")
+async def list_bookings(admin: dict = Depends(get_current_admin), status: Optional[str] = None,
+                        search: Optional[str] = None, page: int = 1, limit: int = 50):
+    q = {}
+    if status and status != "All":
+        q["status"] = status
+    if search:
+        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}},
+                    {"company": {"$regex": search, "$options": "i"}}]
+    total = await db.bookings.count_documents(q)
+    items = await db.bookings.find(q, {"_id": 0}).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    return {"items": items, "total": total}
+
+
+class BookingUpdate(BaseModel):
+    status: Optional[str] = None
+    admin_note: Optional[str] = None
+
+
+@api.patch("/admin/bookings/{bid}")
+async def update_booking(bid: str, data: BookingUpdate, admin: dict = Depends(admin_write)):
+    upd = {k: v for k, v in data.model_dump().items() if v is not None}
+    res = await db.bookings.update_one({"id": bid}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return await db.bookings.find_one({"id": bid}, {"_id": 0})
+
+
+@api.delete("/admin/bookings/{bid}")
+async def delete_booking(bid: str, admin: dict = Depends(admin_write)):
+    await db.bookings.delete_one({"id": bid})
+    return {"message": "Deleted"}
+
+
+# ---- Certification Finder ----
+class FinderInput(BaseModel):
+    name: str = Field(min_length=2)
+    email: EmailStr
+    phone: Optional[str] = ""
+    company: Optional[str] = ""
+    building_type: Optional[str] = ""
+    location: Optional[str] = ""
+    construction_type: Optional[str] = ""
+    project_stage: Optional[str] = ""
+    floor_area: Optional[str] = ""
+    priorities: List[str] = []
+    desired_outcome: Optional[str] = ""
+    timeline: Optional[str] = ""
+    budget_range: Optional[str] = ""
+
+
+DISCLAIMER = ("This is a preliminary suggestion based on the information you provided and is not an "
+              "official certification eligibility decision. Please book a consultation for a detailed review.")
+
+
+@api.post("/public/certification-finder")
+async def certification_finder(data: FinderInput):
+    rules = await db.certification_rules.find({"active": True}, {"_id": 0}).sort("display_order", 1).to_list(100)
+    scored = []
+    for r in rules:
+        score, reasons = 0, []
+        if data.building_type and data.building_type in (r.get("building_types") or []):
+            score += 2
+            reasons.append(f"suited to {data.building_type} projects")
+        if data.construction_type and data.construction_type in (r.get("construction_types") or []):
+            score += 1
+            reasons.append(f"supports {data.construction_type.lower()}")
+        overlap = set(data.priorities) & set(r.get("priorities") or [])
+        if overlap:
+            score += len(overlap)
+            reasons.append("aligns with your priorities: " + ", ".join(sorted(overlap)))
+        if data.desired_outcome and data.desired_outcome.upper() in (r.get("framework") or "").upper():
+            score += 2
+            reasons.append("matches your desired certification outcome")
+        if score > 0:
+            scored.append({"framework": r["framework"], "score": score,
+                           "why": r.get("blurb", ""), "reasons": reasons})
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    if not scored:
+        scored = [{"framework": r["framework"], "score": 0, "why": r.get("blurb", ""),
+                   "reasons": ["A commonly applicable framework worth exploring"]} for r in rules[:3]]
+    suggestions = scored[:4]
+    result = {
+        "id": str(uuid.uuid4()), **data.model_dump(), "email": data.email.lower(),
+        "suggestions": suggestions, "disclaimer": DISCLAIMER,
+        "next_steps": ["Book a consultation with RES", "Share detailed project drawings and goals",
+                       "Receive a tailored certification roadmap"],
+        "created_at": now_iso(),
+    }
+    await db.certification_results.insert_one(dict(result))
+    await create_lead("Certification Finder", result, service="Building Certification")
+    return {"suggestions": suggestions, "disclaimer": DISCLAIMER, "next_steps": result["next_steps"]}
+
+
+@api.get("/admin/certification-results")
+async def list_cert_results(admin: dict = Depends(get_current_admin), page: int = 1, limit: int = 50):
+    total = await db.certification_results.count_documents({})
+    items = await db.certification_results.find({}, {"_id": 0}).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    return {"items": items, "total": total}
+
+
+# ---- Sustainability Readiness Assessment ----
+@api.get("/public/assessment-questions")
+async def public_assessment_questions():
+    qs = await db.assessment_questions.find({"active": True}, {"_id": 0}).sort("display_order", 1).to_list(100)
+    for q in qs:
+        q.pop("weight", None)
+        for o in q.get("options", []):
+            o.pop("score", None)
+    return qs
+
+
+BANDS = [(0, 40, "Getting Started"), (41, 60, "Developing"), (61, 80, "Ready"), (81, 100, "Leading")]
+CATEGORY_RECS = {
+    "Governance & Strategy": "Formalise a sustainability policy with clear ownership and targets.",
+    "Energy Management": "Commission an energy audit and set measurable efficiency targets.",
+    "Water Management": "Baseline water use and introduce conservation and reuse measures.",
+    "Waste Management": "Implement waste segregation, tracking and diversion targets.",
+    "Indoor Environmental Quality": "Assess air quality, lighting and thermal comfort against WELL/IGBC benchmarks.",
+    "Carbon & Climate Reporting": "Begin GHG accounting and align disclosures to recognised frameworks.",
+    "Green Building Readiness": "Undertake a certification gap analysis (LEED/IGBC/GRIHA).",
+}
+CATEGORY_SERVICE = {
+    "Energy Management": "Audit & Energy", "Green Building Readiness": "Building Certification",
+    "Carbon & Climate Reporting": "Data Management & Reporting", "Governance & Strategy": "Climate Action Plan",
+}
+
+
+class AssessmentInput(BaseModel):
+    name: str = Field(min_length=2)
+    email: EmailStr
+    phone: Optional[str] = ""
+    company: Optional[str] = ""
+    answers: dict = {}  # {question_id: option_index}
+
+
+@api.post("/public/assessment")
+async def submit_assessment(data: AssessmentInput):
+    qs = await db.assessment_questions.find({"active": True}, {"_id": 0}).to_list(100)
+    cat_scores, cat_max = {}, {}
+    for q in qs:
+        opts = q.get("options", [])
+        picked = data.answers.get(q["id"])
+        if picked is None:
+            continue
+        try:
+            score = float(opts[int(picked)].get("score", 0))
+        except (ValueError, IndexError, TypeError):
+            score = 0
+        w = float(q.get("weight", 1) or 1)
+        cat = q.get("category", "General")
+        cat_scores[cat] = cat_scores.get(cat, 0) + score * w
+        cat_max[cat] = cat_max.get(cat, 0) + 4 * w
+    category_scores = {c: round(cat_scores[c] / cat_max[c] * 100) if cat_max.get(c) else 0 for c in cat_scores}
+    overall = round(sum(category_scores.values()) / len(category_scores)) if category_scores else 0
+    band = next((name for lo, hi, name in BANDS if lo <= overall <= hi), "Getting Started")
+    gaps = [c for c, s in category_scores.items() if s < 60]
+    recommendations = [CATEGORY_RECS.get(c) for c in gaps if CATEGORY_RECS.get(c)]
+    services = sorted({CATEGORY_SERVICE[c] for c in gaps if c in CATEGORY_SERVICE})
+    result = {
+        "id": str(uuid.uuid4()), "name": data.name, "email": data.email.lower(),
+        "phone": data.phone, "company": data.company,
+        "overall_score": overall, "band": band, "category_scores": category_scores,
+        "gaps": gaps, "recommendations": recommendations, "suggested_services": services,
+        "created_at": now_iso(),
+    }
+    await db.assessment_results.insert_one(dict(result))
+    await create_lead("Readiness Assessment", result)
+    result.pop("_id", None)
+    return {"overall_score": overall, "band": band, "category_scores": category_scores,
+            "gaps": gaps, "recommendations": recommendations, "suggested_services": services,
+            "disclaimer": "This readiness score is indicative only and not a formal audit."}
+
+
+@api.get("/admin/assessment-results")
+async def list_assessment_results(admin: dict = Depends(get_current_admin), page: int = 1, limit: int = 50):
+    total = await db.assessment_results.count_documents({})
+    items = await db.assessment_results.find({}, {"_id": 0}).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    return {"items": items, "total": total}
+
+
+# ---- Unified Leads ----
+LEAD_STATUSES = ["New", "Contacted", "Follow-up", "Qualified", "Converted", "Closed"]
+
+
+@api.get("/admin/leads")
+async def list_leads(admin: dict = Depends(get_current_admin), status: Optional[str] = None,
+                     source: Optional[str] = None, search: Optional[str] = None, page: int = 1, limit: int = 25):
+    q = {}
+    if status and status != "All":
+        q["status"] = status
+    if source and source != "All":
+        q["source"] = source
+    if search:
+        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}},
+                    {"company": {"$regex": search, "$options": "i"}}]
+    total = await db.leads.count_documents(q)
+    items = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    sources = sorted(await db.leads.distinct("source"))
+    return {"items": items, "total": total, "page": page, "limit": limit, "sources": sources}
+
+
+@api.get("/admin/leads/export")
+async def export_leads(admin: dict = Depends(get_current_admin)):
+    items = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    buf = io.StringIO()
+    fields = ["created_at", "name", "company", "email", "phone", "source", "interested_service",
+              "status", "follow_up_date", "admin_note", "message"]
+    w = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
+    w.writeheader()
+    for it in items:
+        w.writerow(it)
+    buf.seek(0)
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+                             headers={"Content-Disposition": "attachment; filename=leads.csv"})
+
+
+class LeadUpdate(BaseModel):
+    status: Optional[str] = None
+    admin_note: Optional[str] = None
+    follow_up_date: Optional[str] = None
+
+
+@api.patch("/admin/leads/{lid}")
+async def update_lead(lid: str, data: LeadUpdate, admin: dict = Depends(admin_write)):
+    upd = {k: v for k, v in data.model_dump().items() if v is not None}
+    res = await db.leads.update_one({"id": lid}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return await db.leads.find_one({"id": lid}, {"_id": 0})
+
+
+@api.delete("/admin/leads/{lid}")
+async def delete_lead(lid: str, admin: dict = Depends(admin_write)):
+    await db.leads.delete_one({"id": lid})
+    return {"message": "Deleted"}
+
+
 
 
 # ---------------- Enquiries ----------------
@@ -228,6 +622,7 @@ async def create_enquiry(data: EnquiryInput, request: Request):
         "created_at": now_iso(),
     }
     await db.enquiries.insert_one(dict(doc))
+    await create_lead("Contact Form", {**doc, "interested_service": data.service_of_interest})
     try:
         await send_enquiry_notification(doc)
     except Exception as e:
@@ -411,6 +806,8 @@ async def admin_capability(admin: dict = Depends(get_current_admin)):
 @api.get("/admin/dashboard")
 async def dashboard(admin: dict = Depends(get_current_admin)):
     recent = await db.enquiries.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    top_res = await db.resources.find({}, {"_id": 0, "title": 1, "download_count": 1}).sort("download_count", -1).limit(5).to_list(5)
+    dl_agg = await db.resources.aggregate([{"$group": {"_id": None, "t": {"$sum": "$download_count"}}}]).to_list(1)
     return {
         "total_projects": await db.projects.count_documents({}),
         "published_projects": await db.projects.count_documents({"status": "published"}),
@@ -420,6 +817,17 @@ async def dashboard(admin: dict = Depends(get_current_admin)):
         "draft_blogs": await db.blog_posts.count_documents({"status": "draft"}),
         "total_enquiries": await db.enquiries.count_documents({}),
         "new_enquiries": await db.enquiries.count_documents({"status": "New"}),
+        "total_leads": await db.leads.count_documents({}),
+        "new_leads": await db.leads.count_documents({"status": "New"}),
+        "follow_up_leads": await db.leads.count_documents({"status": "Follow-up"}),
+        "total_bookings": await db.bookings.count_documents({}),
+        "new_bookings": await db.bookings.count_documents({"status": "New"}),
+        "assessment_completions": await db.assessment_results.count_documents({}),
+        "certification_completions": await db.certification_results.count_documents({}),
+        "total_industries": await db.industries.count_documents({}),
+        "total_resources": await db.resources.count_documents({}),
+        "resource_downloads": (dl_agg[0]["t"] if dl_agg else 0),
+        "most_downloaded": top_res,
         "recent_enquiries": recent,
     }
 
