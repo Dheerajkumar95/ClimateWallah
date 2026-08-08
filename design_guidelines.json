@@ -1,0 +1,104 @@
+{
+  "theme": "light",
+  "typography": {
+    "heading_font": "Cormorant Garamond",
+    "body_font": "Outfit",
+    "font_imports": "@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap');",
+    "hierarchy": {
+      "h1": "text-5xl md:text-7xl lg:text-8xl font-serif tracking-tight leading-[1.05] text-deep-forest-green",
+      "h2": "text-4xl md:text-5xl font-serif tracking-tight leading-[1.2] text-deep-forest-green",
+      "h3": "text-2xl md:text-3xl font-serif leading-[1.3] text-charcoal",
+      "h4": "text-xl md:text-2xl font-sans font-medium text-charcoal",
+      "body": "text-base md:text-lg font-sans leading-relaxed text-charcoal/80",
+      "overline": "text-sm font-sans uppercase tracking-[0.2em] font-semibold text-natural-green"
+    }
+  },
+  "colors": {
+    "palette": {
+      "deep_forest_green": "#133A26",
+      "natural_green": "#2A5934",
+      "light_mint": "#D1E8D5",
+      "off_white": "#F8F9F7",
+      "warm_beige": "#F2EBE5",
+      "charcoal": "#1C211E"
+    },
+    "css_variables_setup": ":root {\n  --background: 83 23% 97%; /* #F8F9F7 */\n  --foreground: 147 8% 12%; /* #1C211E */\n  --primary: 149 50% 15%; /* #133A26 */\n  --primary-foreground: 83 23% 97%;\n  --secondary: 133 36% 25%; /* #2A5934 */\n  --secondary-foreground: 83 23% 97%;\n  --accent: 130 33% 86%; /* #D1E8D5 */\n  --accent-foreground: 149 50% 15%;\n  --muted: 30 23% 92%; /* #F2EBE5 */\n  --muted-foreground: 147 8% 40%;\n  --border: 147 8% 85%;\n  --radius: 0.5rem;\n}",
+    "tailwind_config_extension": {
+      "colors": {
+        "deep-forest-green": "#133A26",
+        "natural-green": "#2A5934",
+        "light-mint": "#D1E8D5",
+        "off-white": "#F8F9F7",
+        "warm-beige": "#F2EBE5",
+        "charcoal": "#1C211E"
+      },
+      "fontFamily": {
+        "serif": ["'Cormorant Garamond'", "serif"],
+        "sans": ["'Outfit'", "sans-serif"]
+      }
+    }
+  },
+  "layouts": {
+    "marketing_pages": "Use generous spacing. Sections should have py-24 or py-32 padding. Implement The Bento Grid Protocol (MODE A) for feature/service showcases. Avoid basic 3-column Bootstrap-style layouts; use asymmetric column spans (e.g., col-span-8 and col-span-4).",
+    "admin_panel": "Use MODE B High Density Grid. Sidebar should have a dark background (deep-forest-green) with off-white text. Main content area should use off-white background with crisp cards. Use p-6 for internal padding.",
+    "container": "max-w-[1400px] mx-auto px-6 md:px-12",
+    "hero_section": "min-h-[90vh] relative flex items-center justify-center. Use a background image with a bg-black/40 overlay to ensure the large editorial typography is highly readable. Left-align text for a premium editorial feel rather than centering."
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full). Primary: bg-deep-forest-green text-off-white hover:bg-natural-green transition-colors. Secondary: border-2 border-deep-forest-green text-deep-forest-green hover:bg-deep-forest-green hover:text-off-white. All buttons MUST have data-testid.",
+    "cards": "Marketing cards: Flat solid surfaces (bg-white or bg-warm-beige), subtle 1px border of border-black/5, NO heavy drop shadows. Generous internal padding (p-8 to p-12). Admin cards: Use shadcn Card component with tight padding (p-6) and subtle shadow-sm.",
+    "navigation": "Fixed or sticky header. When at top, bg-transparent if over hero image. When scrolled, apply crystal glassmorphism: backdrop-blur-xl bg-off-white/80 border-b border-border/40. Navigation MUST be visible on desktop (no hamburger menu for large screens).",
+    "footer": "Massive padding (py-24 to py-32). bg-deep-forest-green text-light-mint. Include large, striking brand typography (e.g., RESILIENT EARTH at text-[8vw]).",
+    "team_cards": "Do not use stock person photos. Use high-quality initials-based avatars: flex items-center justify-center bg-light-mint text-deep-forest-green text-3xl font-serif rounded-full h-32 w-32 mb-6. Card itself should be minimal.",
+    "forms": "Use Shadcn components. Inputs should have bg-white, 1px border, focus:ring-2 focus:ring-natural-green. Labels should be Outfit font, text-sm.",
+    "badges_and_tags": "For certifications (LEED/IGBC/GRIHA) or project categories. Pill shape, bg-light-mint text-deep-forest-green, text-xs uppercase tracking-wider."
+  },
+  "motion": {
+    "libraries": "Framer Motion",
+    "page_transitions": "Fade in and slight upward motion. initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}",
+    "scroll_reveal": "Use whileInView with viewport={{ once: true, margin: '-100px' }}. Stagger children (staggerChildren: 0.1) for grids and lists.",
+    "interactions": "Hover states on cards: whileHover={{ y: -5 }} with extremely smooth transition. Buttons: whileTap={{ scale: 0.98 }}."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1556983852-43bf21186b2a",
+      "description": "Modern green building covered in plants",
+      "category": "Hero Background Image"
+    },
+    {
+      "url": "https://images.pexels.com/photos/371917/pexels-photo-371917.jpeg",
+      "description": "Solar panels at sunset over water",
+      "category": "Services / Energy Audit / Featured Project"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1706074797611-a02f9ed06439",
+      "description": "Modern sustainable office interior with vertical garden",
+      "category": "About Us / Company Intro"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1606836591695-4d58a73eba1e",
+      "description": "Corporate meeting in modern glass office",
+      "category": "Consulting Services / Why Choose RES"
+    },
+    {
+      "url": "https://images.pexels.com/photos/2104499/pexels-photo-2104499.jpeg",
+      "description": "Detailed green leaf macro texture",
+      "category": "Abstract Section Background / Call to Action Overlay"
+    }
+  ],
+  "universal_guidelines": [
+    "NEVER apply universal transitions (e.g., transition: all). Target specific properties (transition: opacity 0.2s, transform 0.2s).",
+    "Do not center-align body text or massive blocks of content. Left-align for better readability and a premium editorial feel.",
+    "Do not use transparent backgrounds for dropdowns, select menus, or overlays. Ensure high contrast.",
+    "All interactive and key elements MUST have a data-testid attribute in kebab-case (e.g., data-testid='hero-cta-button').",
+    "Do not use AI assistant emojis (🤖, 💡, 🎯, etc.) anywhere.",
+    "Never use placeholder URLs (via.placeholder.com). Use the provided image URLs.",
+    "Use sonner for toast notifications in the admin panel and forms.",
+    "Ensure contrast meets APCA/WCAG standards, especially text over hero images."
+  ],
+  "instructions_to_main_agent": {
+    "setup": "Use React (CRA) with Tailwind CSS, Framer Motion, and shadcn/ui. Ensure files are .js/.jsx, not .tsx. Set up React Router for marketing pages and admin routes.",
+    "marketing_site": "Implement Home, About, Services (list + detail), Projects (filter + search + detail), Team, Blog, Contact. Use the organic, earthy color palette and editorial typography (Cormorant Garamond + Outfit). Apply generous spacing and scroll animations.",
+    "admin_panel": "Create a distinct layout for '/admin'. Include a login page. Dashboard should have stat cards, a dark sidebar (deep-forest-green), and CRUD tables/forms using Shadcn UI. Keep it functional, high-density, and clean."
+  }
+}
