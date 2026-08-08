@@ -46,6 +46,19 @@ export default function Homepage() {
           <Field label="Hero title"><TextInput value={form.hero_title} onChange={(v) => set("hero_title", v)} /></Field>
           <Field label="Hero subtitle"><TextArea value={form.hero_subtitle} onChange={(v) => set("hero_subtitle", v)} /></Field>
           <ImagePicker label="Hero image" value={form.hero_image} onChange={(v) => set("hero_image", v)} />
+          <Field label={`Hero image overlay darkness — ${form.hero_overlay_opacity ?? 70}%`} help="Drag to increase (darker, more readable text) or decrease (brighter image).">
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-charcoal/50">Lighter</span>
+              <input
+                type="range" min="0" max="90" step="5"
+                value={form.hero_overlay_opacity ?? 70}
+                onChange={(e) => set("hero_overlay_opacity", Number(e.target.value))}
+                data-testid="hero-overlay-slider"
+                className="flex-1 accent-natural-green"
+              />
+              <span className="text-xs text-charcoal/50">Darker</span>
+            </div>
+          </Field>
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Primary CTA text"><TextInput value={form.cta_primary_text} onChange={(v) => set("cta_primary_text", v)} /></Field>
             <Field label="Primary CTA link"><TextInput value={form.cta_primary_link} onChange={(v) => set("cta_primary_link", v)} /></Field>

@@ -203,6 +203,7 @@ async def seed_content():
             "hero_title": "Building a resilient future for our planet",
             "hero_subtitle": "End-to-end sustainability consulting across every major green building framework — transforming challenges into long-term value.",
             "hero_image": "https://images.unsplash.com/photo-1556983852-43bf21186b2a",
+            "hero_overlay_opacity": 70,
             "cta_primary_text": "Explore Our Projects", "cta_primary_link": "/projects",
             "cta_secondary_text": "Download Capability Profile", "cta_secondary_link": "/capability-profile",
             "intro_heading": "Caring for the Globe",

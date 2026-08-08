@@ -19,6 +19,7 @@ export default function Home() {
 
   const home = d.home || {};
   const sections = home.sections || {};
+  const overlay = typeof home.hero_overlay_opacity === "number" ? home.hero_overlay_opacity : 70;
 
   return (
     <div data-testid="home-page">
@@ -28,8 +29,8 @@ export default function Home() {
       <section className="relative min-h-[92vh] flex items-center" data-testid="hero-section">
         <div className="absolute inset-0">
           <img src={home.hero_image} alt="Sustainable green building" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-deep-forest-green/70" />
-          <div className="absolute inset-0 bg-gradient-to-t from-deep-forest-green/90 via-deep-forest-green/30 to-transparent" />
+          <div className="absolute inset-0" style={{ backgroundColor: `rgba(19, 58, 38, ${overlay / 100})` }} />
+          <div className="absolute inset-0 bg-gradient-to-t from-deep-forest-green/90 via-deep-forest-green/20 to-transparent" />
         </div>
         <div className="relative max-w-[1400px] mx-auto px-6 md:px-12 w-full pt-24">
           <motion.div
