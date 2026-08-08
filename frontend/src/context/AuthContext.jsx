@@ -7,6 +7,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); // null = checking, object = authed, false = not authed
 
   const check = useCallback(async () => {
+    // Only probe session inside the admin area to avoid 401 noise on public pages
+    if (!window.location.pathname.startsWith("/admin")) {
+      setUser(false);
+      return;
+    }
     try {
       const { data } = await api.get("/admin/auth/me");
       setUser(data);
