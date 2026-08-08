@@ -8,7 +8,7 @@ export function Reveal({ children, delay = 0, y = 24, className = "", as = "div"
       className={className}
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
+      viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
@@ -16,25 +16,20 @@ export function Reveal({ children, delay = 0, y = 24, className = "", as = "div"
   );
 }
 
+// Plain container. Each StaggerItem self-triggers on scroll so items animate
+// reliably even when their data loads asynchronously after mount.
 export function Stagger({ children, className = "" }) {
-  return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className={className}>{children}</div>;
 }
 
-export function StaggerItem({ children, className = "", y = 24 }) {
+export function StaggerItem({ children, className = "", y = 24, delay = 0 }) {
   return (
     <motion.div
       className={className}
-      variants={{ hidden: { opacity: 0, y }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } } }}
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </motion.div>

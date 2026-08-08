@@ -117,6 +117,13 @@ PROJECT_IMAGES = [
 ]
 
 CREDENTIALS = ["USGBC LEED", "IGBC", "GRIHA", "EDGE", "WiredScore", "WELL", "TRUE"]
+CREDENTIAL_LOGOS = [
+    {"name": "LEED", "image": "https://static.prod-images.emergentagent.com/jobs/4802f517-df95-41f2-81d6-255f9deb6754/images/2127f01632ecfda19cfe4a7988dd406596f6ad7685cfa0f295ac0193217a7a3e.jpeg"},
+    {"name": "IGBC", "image": "https://static.prod-images.emergentagent.com/jobs/4802f517-df95-41f2-81d6-255f9deb6754/images/40e0708acf62c526e20720350b1db3391bfb422d6bb3094dcd491e08b819231a.jpeg"},
+    {"name": "GRIHA", "image": "https://static.prod-images.emergentagent.com/jobs/4802f517-df95-41f2-81d6-255f9deb6754/images/5923de001f19e807501ac0b15313cb0bdc32fab652657978bf93f6b41af9e806.jpeg"},
+    {"name": "EDGE", "image": "https://static.prod-images.emergentagent.com/jobs/4802f517-df95-41f2-81d6-255f9deb6754/images/4f070f4a06cd1c5d8b9b825c145c0581f9ef5d5e59e5fee65461f19761496eec.jpeg"},
+    {"name": "WELL", "image": "https://static.prod-images.emergentagent.com/jobs/4802f517-df95-41f2-81d6-255f9deb6754/images/554e70ca11287a70e661876cc68cfc5b71173b8ef1c5b6f5dce40de050238480.jpeg"},
+]
 COLLABORATIONS = ["IGBC", "USGBC", "GRIHA", "International WELL Building Institute", "ASHRAE",
                   "EDGE", "WiredScore", "ISHRAE", "Global Network for Zero",
                   "Energy Conservation Building Code (ECBC)", "GreenPro", "Bureau of Energy Efficiency (BEE)"]
@@ -176,6 +183,7 @@ async def seed_content():
             "footer_text": "Sustainability consulting for a greener, cleaner future.",
             "copyright_text": "© 2026 Resilient Earth Solutions Pvt. Ltd. All rights reserved.",
             "credentials": CREDENTIALS, "collaborations": COLLABORATIONS,
+            "credential_logos": CREDENTIAL_LOGOS,
             "updated_at": now_iso(),
         })
 
@@ -250,6 +258,37 @@ async def seed_content():
             "image": "https://images.unsplash.com/photo-1706074797611-a02f9ed06439",
             "updated_at": now_iso(),
         })
+
+    if await db.blog_posts.count_documents({}) == 0:
+        await db.blog_posts.insert_one({
+            "id": str(uuid.uuid4()),
+            "slug": "why-green-building-certification-is-a-strategic-advantage",
+            "title": "Why Green Building Certification Is a Strategic Advantage",
+            "category": "Sustainability",
+            "author": "RES Team",
+            "excerpt": "Green building certification is no longer a nice-to-have. From LEED and IGBC to GRIHA, EDGE and WELL, certification frameworks turn sustainability ambition into measurable, verifiable performance—and lasting value.",
+            "cover_image": "https://images.unsplash.com/photo-1556983852-43bf21186b2a",
+            "content": (
+                "<p>Across India and the world, the built environment is under pressure to do more with less: less energy, less water, less waste and a smaller carbon footprint. Green building certification frameworks give owners, developers and occupiers a credible, third-party way to prove that a building actually delivers on those goals.</p>"
+                "<h2>A common language for performance</h2>"
+                "<p>Frameworks such as <strong>USGBC LEED</strong>, <strong>IGBC</strong>, <strong>GRIHA</strong>, <strong>EDGE</strong> and <strong>WELL</strong> translate broad sustainability intentions into specific, auditable requirements—covering energy efficiency, water conservation, indoor environmental quality, materials and human wellbeing. Certification provides a shared language that investors, tenants and regulators all understand.</p>"
+                "<h2>Value beyond compliance</h2>"
+                "<p>Certified buildings typically see lower operating costs, stronger occupant satisfaction and higher asset value. Just as importantly, certification de-risks sustainability claims at a time when greenwashing is under growing scrutiny. A recognised rating is independent evidence that the performance is real.</p>"
+                "<h2>Choosing the right pathway</h2>"
+                "<p>There is no single &lsquo;best&rsquo; certification. The right choice depends on building type, location, budget and organisational goals. An energy-intensive data centre, a corporate campus and a hospitality asset each call for a different strategy. The role of a sustainability consultant is to map those goals to the most appropriate framework—and to guide the project from concept and design through construction, occupancy and operations.</p>"
+                "<h2>Getting started</h2>"
+                "<p>The earlier certification is considered in a project, the greater the impact and the lower the cost. Engaging accredited professionals during design—rather than retrofitting requirements later—unlocks the full value of certification.</p>"
+                "<p>If you are planning a new development or looking to improve an existing asset, our team can help you identify the right pathway and deliver a certified outcome.</p>"
+            ),
+            "status": "published",
+            "featured": True,
+            "display_order": 0,
+            "seo_title": "Why Green Building Certification Is a Strategic Advantage | RES",
+            "seo_description": "How LEED, IGBC, GRIHA, EDGE and WELL certification turns sustainability ambition into measurable performance and lasting asset value.",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        })
+
 
     for slug, title in [("privacy-policy", "Privacy Policy"), ("terms-and-conditions", "Terms and Conditions"), ("cookie-policy", "Cookie Policy")]:
         if await db.legal_pages.find_one({"slug": slug}) is None:

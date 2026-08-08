@@ -6,6 +6,7 @@ import { publicApi } from "@/lib/api";
 import { Seo } from "@/components/site/Seo";
 import { Reveal, Stagger, StaggerItem } from "@/components/site/Reveal";
 import { ServiceIcon, Overline, ProjectCard, TeamAvatar, CertBadge } from "@/components/site/Bits";
+import { CertificationBand } from "@/components/site/CertificationBand";
 
 export default function Home() {
   const [d, setD] = useState(null);
@@ -183,19 +184,8 @@ export default function Home() {
       )}
 
       {/* CREDENTIALS */}
-      {sections.credentials !== false && d.credentials?.length > 0 && (
-        <section className="py-20 bg-warm-beige border-y border-black/5">
-          <div className="max-w-[1400px] mx-auto px-6 md:px-12">
-            <Reveal><Overline>Our Credentials</Overline>
-              <p className="mt-4 text-2xl md:text-3xl font-serif text-deep-forest-green max-w-3xl">
-                Accredited across all major green building certification frameworks
-              </p>
-            </Reveal>
-            <div className="mt-10 flex flex-wrap gap-3">
-              {d.credentials.map((c) => (<CertBadge key={c}>{c}</CertBadge>))}
-            </div>
-          </div>
-        </section>
+      {sections.credentials !== false && (d.credential_logos?.length > 0 || d.credentials?.length > 0) && (
+        <CertificationBand logos={d.credential_logos} credentials={d.credentials} />
       )}
 
       {/* WHY CHOOSE */}

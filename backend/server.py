@@ -444,6 +444,7 @@ async def public_home():
     settings = await get_singleton("website_settings", "settings")
     return {"home": home, "services": services, "projects": projects, "team": team,
             "blogs": blogs, "credentials": settings.get("credentials", []),
+            "credential_logos": settings.get("credential_logos", []),
             "collaborations": settings.get("collaborations", [])}
 
 
