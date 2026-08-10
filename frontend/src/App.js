@@ -54,10 +54,24 @@ import Bookings from "@/admin/pages/Bookings";
 import { AssessmentResults, CertificationResults } from "@/admin/pages/Results";
 import { Navigate } from "react-router-dom";
 
+import { PortalAuthProvider } from "@/portal/PortalAuthContext";
+import { PortalProtectedRoute } from "@/portal/PortalProtectedRoute";
+import { PortalLayout } from "@/portal/PortalLayout";
+import PortalLogin from "@/portal/pages/PortalLogin";
+import Register from "@/portal/pages/Register";
+import ClientDashboard from "@/portal/pages/ClientDashboard";
+import MyProjects from "@/portal/pages/MyProjects";
+import CreateProject from "@/portal/pages/CreateProject";
+import ProjectWizard from "@/portal/pages/ProjectWizard";
+import ReviewerDashboard from "@/portal/pages/ReviewerDashboard";
+import ReviewerProject from "@/portal/pages/ReviewerProject";
+import { PortalClients, PortalReviewers, PortalProjects } from "@/admin/pages/CertificationPortal";
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <PortalAuthProvider>
         <SettingsProvider>
           <Toaster position="top-right" richColors />
           <FloatingActions />
@@ -99,6 +113,9 @@ function App() {
               <Route path="assessment-questions" element={<AssessmentQuestionsAdmin />} />
               <Route path="assessment-results" element={<AssessmentResults />} />
               <Route path="certification-results" element={<CertificationResults />} />
+              <Route path="portal-clients" element={<PortalClients />} />
+              <Route path="portal-reviewers" element={<PortalReviewers />} />
+              <Route path="portal-projects" element={<PortalProjects />} />
               <Route path="resources" element={<ResourcesAdmin />} />
               <Route path="partners" element={<PartnersAdmin />} />
               <Route path="events" element={<EventsAdmin />} />
@@ -113,8 +130,26 @@ function App() {
               <Route path="legal" element={<LegalAdmin />} />
               <Route path="change-password" element={<ChangePassword />} />
             </Route>
+
+            {/* ---------- Certification Portal (Client / Reviewer) ---------- */}
+            <Route path="/portal/login" element={<PortalLogin />} />
+            <Route path="/portal/register" element={<Register />} />
+            <Route path="/portal" element={<PortalProtectedRoute roles={["client"]}><PortalLayout role="client" /></PortalProtectedRoute>}>
+              <Route index element={<Navigate to="/portal/dashboard" replace />} />
+              <Route path="dashboard" element={<ClientDashboard />} />
+              <Route path="projects" element={<MyProjects />} />
+              <Route path="projects/new" element={<CreateProject />} />
+              <Route path="projects/:id" element={<ProjectWizard />} />
+            </Route>
+            <Route path="/reviewer" element={<PortalProtectedRoute roles={["reviewer"]}><PortalLayout role="reviewer" /></PortalProtectedRoute>}>
+              <Route index element={<Navigate to="/reviewer/dashboard" replace />} />
+              <Route path="dashboard" element={<ReviewerDashboard />} />
+              <Route path="assignments" element={<ReviewerDashboard />} />
+              <Route path="projects/:id" element={<ReviewerProject />} />
+            </Route>
           </Routes>
         </SettingsProvider>
+        </PortalAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -28,9 +28,10 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(admin_id: str) -> str:
+def create_access_token(subject_id: str, role: str = "admin") -> str:
     payload = {
-        "sub": admin_id,
+        "sub": subject_id,
+        "role": role,
         "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES),
         "iat": datetime.now(timezone.utc),

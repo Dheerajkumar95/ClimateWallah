@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Home, Info, Wrench, FolderKanban, Users, FileText, Mail,
   Image, FileDown, Settings, Search, Scale, KeyRound, LogOut, Menu, X, Leaf, ChevronRight,
   Building2, Workflow, Compass, Gauge, BookOpen, Handshake, CalendarDays, CalendarCheck, UserSquare,
+  Award, UserCog, ListChecks,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -22,6 +23,9 @@ const NAV = [
   { to: "/admin/team", label: "Team", Icon: Users },
   { to: "/admin/certification-rules", label: "Certification Rules", Icon: Compass },
   { to: "/admin/certification-results", label: "Finder Results", Icon: Compass },
+  { to: "/admin/portal-projects", label: "Cert Projects", Icon: Award },
+  { to: "/admin/portal-clients", label: "Portal Clients", Icon: UserCog },
+  { to: "/admin/portal-reviewers", label: "Reviewers", Icon: ListChecks },
   { to: "/admin/assessment-questions", label: "Assessment Questions", Icon: Gauge },
   { to: "/admin/assessment-results", label: "Assessment Results", Icon: Gauge },
   { to: "/admin/resources", label: "Resources", Icon: BookOpen },

@@ -24,3 +24,8 @@ async def create_indexes():
     await db.projects.create_index("slug", unique=True)
     await db.blog_posts.create_index("slug", unique=True)
     await db.login_attempts.create_index("identifier")
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("role")
+    await db.pending_registrations.create_index("email", unique=True)
+    await db.certification_projects.create_index("client_id")
+    await db.certification_projects.create_index("reviewer_id")

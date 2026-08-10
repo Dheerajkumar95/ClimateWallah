@@ -1,0 +1,33 @@
+{
+  "summary": "Phase-1 Certification Portal end-to-end tested. Backend: 16/16 pytest cases passed (OTP register+verify, unified login for admin/client/reviewer, wrong-password 401, role enforcement 401/403 across /api/client, /api/reviewer, /api/admin/portal, client project CRUD, IGBC v4 template shape 6 categories/100 pts, auto-save + score, submit blocked until mandatories met then succeeds with version, Residential=under_configuration + submit 409, admin dashboard, clients list with project_count, create reviewer + duplicate 409, cert-projects list, assign flow -> reviewer sees assignment). Frontend: client login redirects to /portal/dashboard with client-dashboard testid; Create Project 6-step stepper works and lands on wizard with only Site Selection unlocked (other 5 categories show lock icon); preliminary disclaimer banner visible; reviewer login redirects to /reviewer/dashboard and shows 1 assignment (assignment-* testid). Admin sidebar navigates to Cert Projects (cert-projects-table), Portal Clients, Reviewers (reviewers-table with Add Reviewer button and assign-select dropdown on submitted project). Public regression: home-page loads, Client Portal link appears in public navbar, existing home-services / home-projects / certification-band sections still render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ProjectWizard sidebar", "issue": "Last category (Innovation and Decarbonisation) displays a green 'Complete' badge on a brand-new project even before the user touches any category — likely because the category has zero mandatory prerequisites so the completeness check returns true. This is visually misleading (it also appears in an ambiguous 'locked?' state — no lock icon, but shows Complete). Consider gating 'Complete' behind: category index <= current_category_index AND at least one interaction/save.", "selector": "[data-testid^=wizard-cat-]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_portal.py", "/app/test_reports/pytest/portal_results.xml"],
+  "action_items": [
+    "Optional UX polish: don't show 'Complete' badge on the last category (or any category with 0 mandatories) until the user has actually opened/saved it. Currently the last IGBC category appears Complete on a fresh project."
+  ],
+  "critical_code_review_comments": [
+    "portal.py `_email_taken` correctly checks both admins and users collections — prevents cross-role collisions.",
+    "OTP verify: attempts increment BEFORE returning the error (via $inc + reload of stale count) — the 'remaining' calculation uses stale in-memory `pending.get('attempts')+1` which is correct because the DB $inc happens first line. OK.",
+    "score_project response field is `claimed_points` not `points`; the wizard UI must post `{met, claimed_points}` — please ensure the frontend uses this exact key when posting responses (test was corrected accordingly).",
+    "IGBC Commercial v4 template has exactly 6 categories totalling 100 points (verified via API).",
+    "Assignment endpoint uses status transition submitted -> assigned but does not enforce that the current status is 'submitted' before assigning. Consider adding a guard: `if project['status'] not in ('submitted','changes_requested'): raise HTTPException(409)` to prevent assigning a draft.",
+    "portal.py /reviewer/assignments query filters by reviewer_id only (not by status). If a reviewer is unassigned by admin later, the filter still matches — consider adding a `status: {'$in': ['assigned','under_review','changes_requested','approved','rejected']}` filter for safety.",
+    "portal.py file is ~490 lines — still within the 700-line guideline but growing. Consider splitting into portal_auth_routes.py, portal_client_routes.py, portal_admin_routes.py as scope grows.",
+    "Wizard 'Innovation' category showing 'Complete' on fresh project (see ui_bug) suggests completeness heuristic treats zero-mandatory categories as pre-complete."
+  ],
+  "updated_files": ["/app/backend/tests/test_portal.py"],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% of critical flows"},
+  "test_credentials": "admin/ResAdmin@2026 ; testclient@resilientearth.in/ClientPass1 ; testreviewer@resilientearth.in/ReviewerPass1",
+  "seed_data_creation": "Backend tests created a few TEST_* certification projects (draft + submitted + assigned) via API for the seeded testclient. One reviewer was assigned during test_projects_list_and_assign; ephemeral OTP client and ephemeral reviewer were both cleaned up. Left-over TEST projects are visible in Cert Projects table (safe to keep — filtered by TEST_ prefix in name).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression: run `pytest /app/backend/tests/test_portal.py -v`. It relies on pre-seeded testclient/testreviewer/admin. Response schema for wizard writes: `{responses: {<crit_id>: {met: bool, claimed_points: int}}}`. To exercise OTP flow, use the mongo-patch trick documented in /app/memory/test_credentials.md — bcrypt-hash '123456' into pending_registrations.otp_hash. Frontend testids confirmed working: portal-login-form, login-email-input, login-password-input, login-submit-btn, client-dashboard, reviewer-dashboard, assignment-<id>, create-project, cp-name/cp-type/cp-next/cp-submit, project-wizard, wizard-cat-<catId>, reviewers-table, cert-projects-table, assign-select-<id>, home-page.",
+  "rca of the issue": "N/A — no blocking bugs. Only cosmetic issue: wizard sidebar shows 'Complete' for a category that has no mandatory prerequisites even on a fresh project. Likely root cause: completeness = 'all mandatory items met' evaluates to True vacuously when mandatory list is empty. Fix: additionally require category was visited/saved (or `category_index <= current_category_index-1`)."
+}

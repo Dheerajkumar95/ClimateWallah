@@ -971,6 +971,8 @@ async def sitemap():
 
 
 app.include_router(api)
+from portal import portal as portal_router
+app.include_router(portal_router)
 app.mount("/api/uploads", StaticFiles(directory=str(ROOT_DIR / "uploads")), name="uploads")
 
 app.add_middleware(

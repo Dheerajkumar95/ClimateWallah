@@ -55,3 +55,40 @@ async def send_enquiry_notification(enquiry: dict):
         resp.raise_for_status()
     except Exception as e:
         logger.error(f"Enquiry email failed: {e}")
+
+
+async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
+    """Send a 6-digit registration OTP. Returns True on success."""
+    if not EMAIL_KEY:
+        logger.warning("Email not configured; skipping OTP email")
+        return False
+    html = f"""
+    <table style="width:100%;max-width:560px;margin:0 auto;font-family:Arial,sans-serif;border-collapse:collapse">
+      <tr><td style="background:#101827;color:#EAFBF4;padding:24px;font-size:18px;font-weight:700">
+        Resilient Earth Solutions — Verify your email</td></tr>
+      <tr><td style="padding:24px;color:#1C211E;line-height:1.6">
+        <p style="margin:0 0 12px 0">Hi {name or 'there'},</p>
+        <p style="margin:0 0 18px 0">Use the verification code below to complete your registration for the RES Client Certification Portal. This code expires in <strong>5 minutes</strong>.</p>
+        <div style="font-size:34px;font-weight:800;letter-spacing:10px;color:#009C72;background:#EAFBF4;border:1px solid #E2E7EC;border-radius:12px;padding:18px;text-align:center">{otp}</div>
+        <p style="margin:18px 0 0 0;color:#64748b;font-size:13px">If you did not request this, you can safely ignore this email.</p>
+      </td></tr>
+    </table>
+    """
+    payload = {
+        "to": [to_email],
+        "subject": f"Your RES verification code: {otp}",
+        "html": html,
+        "from_name": EMAIL_FROM_NAME,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{EMAIL_BASE_URL}/api/v1/email/send",
+                headers={"X-Email-Key": EMAIL_KEY},
+                json=payload,
+            )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"OTP email failed: {e}")
+        return False

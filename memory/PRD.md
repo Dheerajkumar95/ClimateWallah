@@ -42,6 +42,21 @@ Build a complete, production-ready corporate website + single-admin CMS for **Re
 ## Admin Credentials
 Login ID `admin` / Email `admin@resilientearth.in` / Password `ResAdmin@2026` (see `/app/memory/test_credentials.md`).
 
+## Client Certification Portal — Phase 1 Foundation (2026-06)
+Multi-role portal built ALONGSIDE the existing site/CMS (React + FastAPI + MongoDB, no stack change). Verified: testing agent iteration_5 — backend 16/16 pytest, all critical frontend flows.
+- **Roles & auth**: `client` (self-register via 5-min email OTP, max 5 attempts, Emergent Resend), `reviewer` (admin-created only), `admin` (single existing account). Unified `POST /api/auth/login` returns role; JWT cookie carries a `role` claim; server-enforced role dependencies (`portal_auth.py`). Endpoints: `/api/auth/client/register|verify-otp|resend-otp`, `/api/auth/login|logout|me`.
+- **Client portal** (`/portal`): dashboard, My Projects, 6-step Create Project wizard, and the **sequential IGBC Commercial v4 certification wizard** — one category unlockable at a time, mandatory prerequisites gate the next section, auto-save, live claimed score + band, submit with versioned snapshot (blocked until all mandatories met).
+- **Reviewer portal** (`/reviewer`): dashboard + assignment list + read-only claimed-score breakdown (recommend/request-changes tooling is Phase-1-remaining).
+- **Admin CMS additions**: Cert Projects queue (+assign reviewer), Portal Clients, Reviewers (create). New sidebar links.
+- **Rating engine** (`rating_template.py`): IGBC Green New Buildings v4 Commercial — 6 categories, owner/tenant variants, 100 pts, thresholds (Certified/Silver/Gold/Platinum). Residential/Hotel/Hospital → "checklist under configuration", never a fake score.
+- **Collections added**: `users`, `pending_registrations`, `certification_projects`, `review_assignments`.
+- **New files**: backend `portal.py`, `portal_auth.py`, `rating_template.py` (+ `email_service.send_otp_email`, `auth.create_access_token` role); frontend `src/portal/*`, `src/admin/pages/CertificationPortal.jsx`.
+- Preliminary disclaimer shown throughout: "RES Internal / Preliminary Assessment — not an official IGBC certification."
+
+## Phase 1 remaining / next (portal)
+- Reviewer review UI: recommend points, request changes, forward to admin; Admin final review/decision + official certificate record; versioned resubmission; project status timeline; notifications; document/evidence upload & versioning.
+- Public site redesign the user approved for AFTER portal: sticky header with mega-menus (Services/Tools/Events) + homepage hero carousel.
+
 ## Backlog (P1/P2)
 - P1: Drag-and-drop reorder UI (backend reorder endpoint exists).
 - P1: Blog live preview pane.

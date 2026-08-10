@@ -72,6 +72,13 @@ export function Navbar() {
 
           <div className="flex items-center gap-3">
             <Link
+              to="/portal/login"
+              data-testid="navbar-portal"
+              className={`hidden lg:inline-flex items-center text-sm font-medium hover:text-natural-green transition-colors ${textColor}`}
+            >
+              Client Portal
+            </Link>
+            <Link
               to="/book"
               data-testid="navbar-cta"
               className="hidden lg:inline-flex items-center rounded-full bg-deep-forest-green text-off-white px-6 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"
