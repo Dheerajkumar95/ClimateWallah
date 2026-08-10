@@ -1,0 +1,38 @@
+{
+  "summary": "Phase-2 (Reviewer Scoring + Admin Certification + public header/hero/events/contact-topic prefill) end-to-end tested. Backend: 22/22 pytest cases pass — 6 new Phase-2 tests (reviewer recommendations + request-changes + client re-submit -> under_review, forward blocked until mandatory met then succeeds with recommended_score, role isolation 403 on /api/reviewer/* for client & admin, assign draft blocked 409, admin finalize 'certified' blocked until mandatory then succeeds with certificate + client sees official_record + final_score, rejected flow) + 16 Phase-1 regression tests still green. Frontend: sticky mega-menu header (nav-link-home/about/projects/services/tools/events, navbar-login->/portal/login, navbar-cta->/book), Tools mega-menu opens on hover with Certifications->/certification-finder and topic contact links, Services mega lists real /services/:slug + 'All services' + Book a Demo card, Hero carousel auto-advances (slide 0->1 verified by dot class + CTA href /resources -> /certification-finder), prev/next arrows and dots functional, Events page loads with empty-state Book a Demo CTA, Contact prefills subject='Enquiry: BRSR Reporting' + message from ?topic=. Portal lifecycle: client sees changes-banner (with reviewer comment) on changes_requested, final-banner (certified: 'Certified — Platinum, Certificate TEST-RES-*, Valid until 2029-01-14') and (rejected: 'Not certified, Final score: 0/100'). Reviewer read-only view on changes_requested, editable on assigned with rec-total, review-forward-btn, review-request-btn, review-comment, 27 rec-points inputs + 8 rec-met checkboxes. Empty-comment Request Changes is blocked client-side with toast 'Add a comment describing the changes required.' and server status stays 'assigned'. Admin FinalizeModal opens via review-open-{id} for forwarded/under_review/assigned projects showing Client claimed / Reviewer rec / Final totals, per-criterion final-points inputs (x27), final-decision select, cert-number, issued/valid dates, notes, finalize-submit-btn.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin FinalizeModal", "issues": ["Issued date and Valid until fields use the browser's native <input type=date> picker (mm/dd/yyyy) instead of a shadcn/calendar component — inconsistent with the rest of the admin CMS design system."]},
+      {"screen": "Home hero carousel (slide 3)", "issues": ["When manually clicking hero-dot-2 the slide area momentarily rendered without visible image/title/CTA text in a screenshot (transient — auto-cycle from 0->1 rendered fine). Verify slide-3 image asset is loading; also the primary CTA href read /certification-finder briefly after clicking dot-2 (expected /book), which suggests a click-vs-render race. Non-blocking but worth eyeballing."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_portal_phase2.py",
+    "/app/backend/tests/test_portal.py",
+    "/app/test_reports/pytest/phase2_results.xml"
+  ],
+  "action_items": [
+    "Optional polish: replace native date pickers in FinalizeModal (Issued date / Valid until) with the shadcn calendar component for visual consistency.",
+    "Sanity-check hero slide 3 (index 2): confirm the laptop image URL loads and the primary CTA re-renders to /book immediately after selection (minor click-race observed once)."
+  ],
+  "critical_code_review_comments": [
+    "portal.py finalize endpoint: only 'certified' decision enforces mandatory_ok; 'rejected' correctly bypasses. Certificate metadata (number/dates/notes) is stored verbatim without validation — consider light validation (e.g., certificate_number required when decision='certified') to prevent empty official records.",
+    "portal.py reviewer forward: also gate on 'under_review' being reached first? Currently 'assigned' can forward directly if all mandatories are checked — acceptable but consider requiring an explicit save-recommendations first to ensure the intent is recorded. Current guard via score_responses(mandatory_ok) is sufficient.",
+    "portal.py get_client_project returns reviewer_recommendations verbatim to the client — this exposes reviewer's internal per-criterion points before final decision. If confidentiality is desired, strip reviewer_recommendations for clients (only expose reviewer_comment + official_record).",
+    "portal.py file now ~633 lines — still under 700 but approaching the split threshold. Consider extracting reviewer + admin certification routes into portal_reviewer.py / portal_admin_cert.py.",
+    "score_responses uses the 'recommended_points'/'final_points' key generically — good DRY, but the pydantic RecommendationsInput allows arbitrary dict values (no schema on inner {met, recommended_points}). Consider a nested Pydantic model for stronger validation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_portal_phase2.py (new)"
+  ],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "100% of critical flows"},
+  "test_credentials": "admin/ResAdmin@2026 ; testclient@resilientearth.in/ClientPass1 ; testreviewer@resilientearth.in/ReviewerPass1",
+  "seed_data_creation": "Created several TEST_* certification projects for testclient during backend and frontend testing (statuses: submitted, assigned, under_review, changes_requested, forwarded, certified, rejected). Certificate 'TEST-RES-*' and 'TEST-UI-*' numbers used. Two ephemeral reviewers were created + deleted by the phase-1 regression suite. Safe to keep or clean up by TEST_ prefix filter.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Regression: `pytest /app/backend/tests/test_portal_phase2.py /app/backend/tests/test_portal.py -v` (22 tests, ~10s). Admin cert-projects table route is /admin/portal-projects (NOT /admin/cert-projects — the latter 404s; sidebar link uses portal-projects). review-open-{id} button only appears for projects in assigned/under_review/forwarded/certified/rejected (submitted rows show assign-select dropdown). Reviewer UI is read-only when project.status == 'changes_requested' — rec-points/rec-met and review-forward/review-request buttons are disabled by design; expect these to be non-interactive there. Request-changes requires a comment (client-side validated via toast). Backend endpoints validated: PUT /api/reviewer/projects/{id}/recommendations, POST /api/reviewer/projects/{id}/request-changes, POST /api/reviewer/projects/{id}/forward, GET /api/admin/portal/certification-projects/{id}, POST /api/admin/portal/projects/{id}/finalize, assign guard on non-submitted (409). Client GET /api/client/projects/{id} exposes reviewer_comment (on changes_requested) and official_record + final_score (on certified/rejected).",
+  "rca of the issue": "N/A — no blocking issues. Only two nits: (1) native date picker in FinalizeModal instead of shadcn calendar (design inconsistency), (2) transient hero-slide-3 rendering after manual dot click (auto-advance is fine)."
+}

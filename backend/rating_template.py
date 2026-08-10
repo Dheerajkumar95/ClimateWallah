@@ -165,14 +165,12 @@ def band_for_score(project_type: str, score: float) -> str:
     return "Uncertified"
 
 
-def score_project(project: dict) -> dict:
-    """Compute claimed score/band from a project's responses. Never fabricates."""
-    tpl = template_for_type(project.get("project_type"))
+def _score_core(project_type, occupancy, responses, points_key):
+    tpl = template_for_type(project_type)
     if not tpl:
         return {"under_configuration": True, "claimed_total": 0, "band": "Pending", "categories": {}, "mandatory_ok": None}
-    occ = project.get("occupancy_type", "owner")
-    occ = occ if occ in tpl["occupancy_variants"] else "owner"
-    responses = project.get("responses", {}) or {}
+    occ = occupancy if occupancy in tpl["occupancy_variants"] else "owner"
+    responses = responses or {}
     cat_scores = {}
     total = 0
     mandatory_ok = True
@@ -186,7 +184,7 @@ def score_project(project: dict) -> dict:
                 if not r.get("met", False):
                     mandatory_ok = False
             else:
-                pts = r.get("claimed_points", 0) or 0
+                pts = r.get(points_key, 0) or 0
                 try:
                     pts = float(pts)
                 except (TypeError, ValueError):
@@ -201,7 +199,18 @@ def score_project(project: dict) -> dict:
         "under_configuration": False,
         "claimed_total": total,
         "total_max": tpl["total_max"][occ],
-        "band": band_for_score(project.get("project_type"), total),
+        "band": band_for_score(project_type, total),
         "categories": cat_scores,
         "mandatory_ok": mandatory_ok,
     }
+
+
+def score_project(project: dict) -> dict:
+    """Compute claimed score/band from a project's responses. Never fabricates."""
+    return _score_core(project.get("project_type"), project.get("occupancy_type", "owner"),
+                       project.get("responses", {}), "claimed_points")
+
+
+def score_responses(project_type: str, occupancy: str, responses: dict, points_key: str) -> dict:
+    """Generic scorer for reviewer-recommended / admin-final tiers."""
+    return _score_core(project_type, occupancy, responses, points_key)

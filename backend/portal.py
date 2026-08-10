@@ -18,9 +18,10 @@ from auth import (
 )
 from portal_auth import (
     get_current_user, current_client, current_client_write,
-    current_reviewer, current_admin_portal, current_admin_portal_write,
+    current_reviewer, current_reviewer_write,
+    current_admin_portal, current_admin_portal_write,
 )
-from rating_template import view_template, score_project, template_for_type
+from rating_template import view_template, score_project, score_responses, template_for_type
 from email_service import send_otp_email
 from seed import now_iso
 
@@ -114,6 +115,28 @@ class CreateReviewerInput(BaseModel):
 class AssignInput(BaseModel):
     project_id: str
     reviewer_id: str
+
+
+class RecommendationsInput(BaseModel):
+    recommendations: dict = {}
+    reviewer_comment: str | None = None
+
+
+class CommentInput(BaseModel):
+    comment: str | None = None
+
+
+class FinalizeInput(BaseModel):
+    final: dict = {}
+    decision: str  # 'certified' | 'rejected'
+    certificate: dict = {}
+
+    @field_validator("decision")
+    @classmethod
+    def valid_decision(cls, v):
+        if v not in ("certified", "rejected"):
+            raise ValueError("decision must be 'certified' or 'rejected'")
+        return v
 
 
 # ---------------- helpers ----------------
@@ -330,6 +353,11 @@ async def _get_owned_project(project_id: str, user: dict) -> dict:
 async def get_client_project(project_id: str, user: dict = Depends(current_client)):
     p = await _get_owned_project(project_id, user)
     p["score"] = score_project(p)
+    # Reviewer's internal per-criterion recommendations are confidential — never expose to the client.
+    p.pop("reviewer_recommendations", None)
+    p.pop("recommended_score", None)
+    if p.get("status") in ("certified", "rejected") and p.get("official_record"):
+        p["final_score"] = score_responses(p["project_type"], p.get("occupancy_type", "owner"), p.get("final_responses") or {}, "final_points")
     return p
 
 
@@ -360,6 +388,8 @@ async def submit_client_project(project_id: str, user: dict = Depends(current_cl
     p = await _get_owned_project(project_id, user)
     if p.get("under_configuration"):
         raise HTTPException(status_code=409, detail="Checklist under configuration — this project type cannot be submitted yet.")
+    if p.get("status") not in ("draft", "changes_requested"):
+        raise HTTPException(status_code=409, detail="Project is already under review.")
     score = score_project(p)
     if not score.get("mandatory_ok", False):
         raise HTTPException(status_code=400, detail="All mandatory criteria must be marked as met before submitting.")
@@ -369,16 +399,18 @@ async def submit_client_project(project_id: str, user: dict = Depends(current_cl
         "score": score,
         "submitted_at": now_iso(),
     }
+    # If a reviewer is already assigned (resubmission after changes), route back to review
+    new_status = "under_review" if p.get("reviewer_id") else "submitted"
     await db.certification_projects.update_one(
         {"id": project_id},
         {"$set": {
-            "status": "submitted",
+            "status": new_status,
             "version": snapshot["version"],
             "submitted_at": snapshot["submitted_at"],
             "updated_at": now_iso(),
         }, "$push": {"snapshots": snapshot}},
     )
-    return {"submitted": True, "version": snapshot["version"], "score": score}
+    return {"submitted": True, "version": snapshot["version"], "score": score, "status": new_status}
 
 
 # ---------------- Reviewer ----------------
@@ -401,7 +433,62 @@ async def reviewer_project(project_id: str, user: dict = Depends(current_reviewe
         raise HTTPException(status_code=404, detail="Assignment not found")
     p["score"] = score_project(p)
     p["template"] = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    rec = p.get("reviewer_recommendations") or {}
+    p["recommended_score"] = score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")
+    client = await db.users.find_one({"id": p["client_id"]}, {"_id": 0, "name": 1, "email": 1, "organization": 1})
+    p["client"] = client or {}
     return p
+
+
+REVIEWER_EDITABLE = ("assigned", "submitted", "under_review")
+
+
+async def _get_reviewer_project(project_id: str, user: dict) -> dict:
+    p = await db.certification_projects.find_one({"id": project_id, "reviewer_id": user["id"]}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    return p
+
+
+@portal.put("/reviewer/projects/{project_id}/recommendations")
+async def reviewer_save_recommendations(project_id: str, data: RecommendationsInput, user: dict = Depends(current_reviewer_write)):
+    p = await _get_reviewer_project(project_id, user)
+    if p.get("status") not in REVIEWER_EDITABLE:
+        raise HTTPException(status_code=409, detail="This project is no longer open for review.")
+    rec = {**(p.get("reviewer_recommendations") or {}), **(data.recommendations or {})}
+    update = {"reviewer_recommendations": rec, "status": "under_review", "updated_at": now_iso()}
+    if data.reviewer_comment is not None:
+        update["reviewer_comment"] = data.reviewer_comment
+    await db.certification_projects.update_one({"id": project_id}, {"$set": update})
+    return {"saved": True, "recommended_score": score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")}
+
+
+@portal.post("/reviewer/projects/{project_id}/request-changes")
+async def reviewer_request_changes(project_id: str, data: CommentInput, user: dict = Depends(current_reviewer_write)):
+    p = await _get_reviewer_project(project_id, user)
+    if p.get("status") not in REVIEWER_EDITABLE:
+        raise HTTPException(status_code=409, detail="This project is no longer open for review.")
+    await db.certification_projects.update_one({"id": project_id}, {"$set": {
+        "status": "changes_requested", "reviewer_comment": data.comment or p.get("reviewer_comment"),
+        "updated_at": now_iso(),
+    }})
+    return {"status": "changes_requested"}
+
+
+@portal.post("/reviewer/projects/{project_id}/forward")
+async def reviewer_forward(project_id: str, data: CommentInput, user: dict = Depends(current_reviewer_write)):
+    p = await _get_reviewer_project(project_id, user)
+    if p.get("status") not in REVIEWER_EDITABLE:
+        raise HTTPException(status_code=409, detail="This project cannot be forwarded from its current state.")
+    rec = p.get("reviewer_recommendations") or {}
+    rec_score = score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")
+    if not rec_score.get("mandatory_ok", False):
+        raise HTTPException(status_code=400, detail="Mark all mandatory criteria as met in your recommendation before forwarding.")
+    update = {"status": "forwarded", "recommended_score": rec_score, "forwarded_at": now_iso(), "updated_at": now_iso()}
+    if data.comment:
+        update["reviewer_comment"] = data.comment
+    await db.certification_projects.update_one({"id": project_id}, {"$set": update})
+    return {"status": "forwarded", "recommended_score": rec_score}
 
 
 # ---------------- Admin portal ----------------
@@ -489,3 +576,60 @@ async def admin_assign_reviewer(data: AssignInput, user: dict = Depends(current_
         "assigned_at": now_iso(),
     })
     return {"assigned": True}
+
+
+@portal.get("/admin/portal/certification-projects/{project_id}")
+async def admin_portal_project_detail(project_id: str, user: dict = Depends(current_admin_portal)):
+    p = await db.certification_projects.find_one({"id": project_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    occ = p.get("occupancy_type", "owner")
+    p["template"] = view_template(p["project_type"], occ)
+    p["claimed_score"] = score_project(p)
+    p["recommended_score"] = score_responses(p["project_type"], occ, p.get("reviewer_recommendations") or {}, "recommended_points")
+    if p.get("final_responses"):
+        p["final_score"] = score_responses(p["project_type"], occ, p.get("final_responses"), "final_points")
+    p["client"] = await db.users.find_one({"id": p["client_id"]}, {"_id": 0, "name": 1, "email": 1, "organization": 1}) or {}
+    if p.get("reviewer_id"):
+        p["reviewer"] = await db.users.find_one({"id": p["reviewer_id"]}, {"_id": 0, "name": 1, "email": 1}) or {}
+    return p
+
+
+@portal.post("/admin/portal/projects/{project_id}/finalize")
+async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dict = Depends(current_admin_portal_write)):
+    p = await db.certification_projects.find_one({"id": project_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if p.get("under_configuration"):
+        raise HTTPException(status_code=409, detail="This project type has no configured checklist.")
+    occ = p.get("occupancy_type", "owner")
+    final_resp = data.final or {}
+    final_score = score_responses(p["project_type"], occ, final_resp, "final_points")
+    if data.decision == "certified":
+        if not final_score.get("mandatory_ok", False):
+            raise HTTPException(status_code=400, detail="All mandatory criteria must be met to certify this project.")
+        if not (data.certificate or {}).get("number"):
+            raise HTTPException(status_code=400, detail="A certificate number is required to certify this project.")
+    official = {
+        "decision": data.decision,
+        "band": final_score.get("band") if data.decision == "certified" else "Rejected",
+        "final_total": final_score.get("claimed_total", 0),
+        "total_max": final_score.get("total_max"),
+        "certificate_number": (data.certificate or {}).get("number"),
+        "issued_date": (data.certificate or {}).get("issued_date"),
+        "valid_until": (data.certificate or {}).get("valid_until"),
+        "notes": (data.certificate or {}).get("notes"),
+        "finalized_by": user["id"],
+        "finalized_at": now_iso(),
+    }
+    await db.certification_projects.update_one(
+        {"id": project_id},
+        {"$set": {
+            "final_responses": final_resp,
+            "final_score": final_score,
+            "official_record": official,
+            "status": "certified" if data.decision == "certified" else "rejected",
+            "updated_at": now_iso(),
+        }},
+    )
+    return {"status": official["decision"], "official_record": official, "final_score": final_score}

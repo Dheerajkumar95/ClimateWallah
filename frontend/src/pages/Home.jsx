@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Download, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { publicApi } from "@/lib/api";
 import { Seo } from "@/components/site/Seo";
 import { Reveal, Stagger, StaggerItem } from "@/components/site/Reveal";
 import { ServiceIcon, Overline, ProjectCard, TeamAvatar, CertBadge } from "@/components/site/Bits";
 import { CertificationBand } from "@/components/site/CertificationBand";
+import { HeroCarousel } from "@/components/site/HeroCarousel";
 
 export default function Home() {
   const [d, setD] = useState(null);
@@ -19,54 +19,13 @@ export default function Home() {
 
   const home = d.home || {};
   const sections = home.sections || {};
-  const overlay = typeof home.hero_overlay_opacity === "number" ? home.hero_overlay_opacity : 70;
 
   return (
     <div data-testid="home-page">
       <Seo title="Sustainability Consulting" description={home.hero_subtitle} path="/" />
 
       {/* HERO */}
-      <section className="relative min-h-[92vh] flex items-center" data-testid="hero-section">
-        <div className="absolute inset-0">
-          <img src={home.hero_image} alt="Sustainable green building" className="h-full w-full object-cover" />
-          <div className="absolute inset-0" style={{ backgroundColor: `rgba(19, 58, 38, ${overlay / 100})` }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-deep-forest-green/90 via-deep-forest-green/20 to-transparent" />
-        </div>
-        <div className="relative max-w-[1400px] mx-auto px-6 md:px-12 w-full pt-24">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-4xl"
-          >
-            <Overline className="text-light-mint">Resilient Earth Solutions</Overline>
-            <h1 className="mt-5 text-off-white text-5xl md:text-7xl lg:text-8xl font-serif leading-[1.03] tracking-tight">
-              {home.hero_title}
-            </h1>
-            <p className="mt-8 text-light-mint/90 text-lg md:text-xl max-w-2xl leading-relaxed">
-              {home.hero_subtitle}
-            </p>
-            <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                to={home.cta_primary_link || "/projects"}
-                data-testid="hero-primary-cta"
-                className="group inline-flex items-center gap-2 rounded-full bg-off-white text-deep-forest-green px-7 py-3.5 font-medium hover:bg-light-mint transition-colors"
-              >
-                {home.cta_primary_text || "Explore Our Projects"}
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                to={home.cta_secondary_link || "/capability-profile"}
-                data-testid="hero-secondary-cta"
-                className="inline-flex items-center gap-2 rounded-full border-2 border-off-white/60 text-off-white px-7 py-3.5 font-medium hover:bg-off-white hover:text-deep-forest-green transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                {home.cta_secondary_text || "Download Capability Profile"}
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <HeroCarousel />
 
       {/* STATS */}
       {home.stats?.length > 0 && (

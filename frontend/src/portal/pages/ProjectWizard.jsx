@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  Loader2, Check, Lock, ChevronLeft, ChevronRight, Save, Send, ShieldCheck, CircleDot, AlertCircle,
+  Loader2, Check, Lock, ChevronLeft, ChevronRight, Save, Send, ShieldCheck, CircleDot, AlertCircle, Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -145,6 +145,29 @@ export default function ProjectWizard() {
       <div className="rounded-xl bg-warm-beige/60 border border-border px-4 py-2.5 text-xs text-charcoal/70 flex items-center gap-2 mb-5">
         <ShieldCheck className="h-4 w-4 text-natural-green" /> RES Internal / Preliminary Assessment — not an official IGBC certification.
       </div>
+
+      {project.status === "changes_requested" && project.reviewer_comment && (
+        <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm" data-testid="changes-banner">
+          <div className="font-medium mb-0.5">Reviewer requested changes</div>
+          <div className="text-amber-700/90">{project.reviewer_comment}</div>
+          <div className="text-xs text-amber-700/70 mt-1">Update your responses and re-submit for review.</div>
+        </div>
+      )}
+
+      {project.official_record && (
+        <div className={`mb-5 rounded-xl px-4 py-4 ${project.official_record.decision === "certified" ? "bg-natural-green/10 border border-natural-green/30" : "bg-red-50 border border-red-200"}`} data-testid="final-banner">
+          <div className="flex items-center gap-2">
+            {project.official_record.decision === "certified" ? <Award className="h-5 w-5 text-natural-green" /> : <AlertCircle className="h-5 w-5 text-red-500" />}
+            <span className="font-medium text-charcoal capitalize">{project.official_record.decision === "certified" ? `Certified — ${project.official_record.band}` : "Not certified"}</span>
+          </div>
+          <div className="text-sm text-charcoal/70 mt-1.5">
+            Final score: <strong>{project.official_record.final_total}/{project.official_record.total_max}</strong>
+            {project.official_record.certificate_number && <> · Certificate <strong>{project.official_record.certificate_number}</strong></>}
+            {project.official_record.valid_until && <> · Valid until {project.official_record.valid_until}</>}
+          </div>
+          {project.official_record.notes && <div className="text-xs text-charcoal/55 mt-1">{project.official_record.notes}</div>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
         {/* Category rail */}

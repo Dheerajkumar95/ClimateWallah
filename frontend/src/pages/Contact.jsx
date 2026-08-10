@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,7 +26,12 @@ const SERVICES = ["Audit & Energy", "Building Certification", "Climate Action Pl
 export default function Contact() {
   const { settings } = useSettings();
   const [sent, setSent] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
+  const [searchParams] = useSearchParams();
+  const topic = searchParams.get("topic") || "";
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: topic ? { subject: `Enquiry: ${topic}`, message: `I'd like to know more about ${topic}.` } : {},
+  });
 
   const onSubmit = async (values) => {
     try {

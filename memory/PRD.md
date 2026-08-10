@@ -54,8 +54,16 @@ Multi-role portal built ALONGSIDE the existing site/CMS (React + FastAPI + Mongo
 - Preliminary disclaimer shown throughout: "RES Internal / Preliminary Assessment — not an official IGBC certification."
 
 ## Phase 1 remaining / next (portal)
-- Reviewer review UI: recommend points, request changes, forward to admin; Admin final review/decision + official certificate record; versioned resubmission; project status timeline; notifications; document/evidence upload & versioning.
-- Public site redesign the user approved for AFTER portal: sticky header with mega-menus (Services/Tools/Events) + homepage hero carousel.
+- Notifications/email on status changes; project status timeline UI; document/evidence upload & versioning; audit log surfacing.
+- Public site: homepage sections below the hero could get the same premium refresh; mobile mega-menu depth.
+
+## Certification Portal — Phase 2 (2026-06): Review workflow + Public redesign
+Verified: testing agent iteration_6 — backend **22/22 pytest**, all critical frontend flows.
+- **Reviewer Scoring**: per-criterion recommended points + comment; Request Changes (→ back to client, editable, resubmit routes to `under_review`); Forward to admin (blocked until mandatory met). Endpoints: `PUT /api/reviewer/projects/{id}/recommendations`, `POST .../request-changes`, `POST .../forward`.
+- **Admin Certification**: `GET /api/admin/portal/certification-projects/{id}` (claimed+recommended+template), `POST /api/admin/portal/projects/{id}/finalize` — award final points, decision certified/rejected, record certificate (number **required** to certify, dates, notes) → `official_record`. Assign guarded to submitted/changes_requested only. 3-tier scoring via `rating_template.score_responses`.
+- **Confidentiality**: client view exposes `reviewer_comment` + `official_record` + own claimed/final only — reviewer's internal recommended points are stripped.
+- **Public header**: sticky, always-solid; nav Home · About · Projects · Services(mega) · Tools(mega) · Events + **Book a Demo** (/book) + **Login** (/portal/login, unified role redirect). Tools mega → certifications to `/certification-finder`, others to `/contact?topic=`; Services mega lists real services. `HeroCarousel` (3 auto-sliding RES-branded slides w/ generated laptop mockups, dots + arrows, pause on hover). New public **/events** page. Contact prefill from `?topic=`.
+- New files: `HeroCarousel.jsx`, `Events.jsx`; rewrote `Navbar.jsx`, `ReviewerProject.jsx`; extended `ProjectWizard.jsx` (banners), `CertificationPortal.jsx` (FinalizeModal), `portal.py`, `rating_template.py`, `Home.jsx`, `Contact.jsx`.
 
 ## Backlog (P1/P2)
 - P1: Drag-and-drop reorder UI (backend reorder endpoint exists).
