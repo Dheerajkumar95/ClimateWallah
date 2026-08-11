@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Response, Upload
 from pydantic import BaseModel, EmailStr, field_validator
 
 from database import db
+from app.services import storage
 from auth import (
     hash_password, verify_password, create_access_token, set_auth_cookies,
     clear_auth_cookies, new_csrf_token, check_lockout, register_failed, clear_attempts,
@@ -508,17 +509,16 @@ async def save_assessment_section(project_id: str, slug: str, data: ResponsesInp
     return {"saved": True, "score": score_project(merged_p), "next_slug": next_slug, "sections": _section_states(merged_p, tpl)}
 
 
-def _save_upload(project_id: str, up: UploadFile, content: bytes) -> dict:
+async def _save_upload(project_id: str, up: UploadFile, content: bytes) -> dict:
     ext = os.path.splitext(up.filename or "")[1].lower()
     if ext not in ALLOWED_UPLOAD_EXT:
         raise HTTPException(status_code=400, detail=f"File type {ext or '?'} not allowed.")
     if len(content) > MAX_UPLOAD:
         raise HTTPException(status_code=400, detail=f"File too large (max {MAX_UPLOAD // (1024*1024)} MB).")
-    proj_dir = EVIDENCE_DIR / project_id
-    proj_dir.mkdir(parents=True, exist_ok=True)
     fid = uuid.uuid4().hex
     fname = f"{fid}{ext}"
-    (proj_dir / fname).write_bytes(content)
+    await storage.save_bytes(f"evidence/{project_id}/{fname}", content,
+                             up.content_type or "application/octet-stream", original_name=up.filename)
     return {
         "id": fid, "filename": fname, "original_name": up.filename,
         "url": f"{BACKEND_URL}/api/uploads/evidence/{project_id}/{fname}",
@@ -534,7 +534,7 @@ async def upload_client_file(project_id: str, file: UploadFile = File(...), scop
     if p.get("status") not in ("draft", "changes_requested"):
         raise HTTPException(status_code=409, detail="Files can only be uploaded while the project is editable.")
     content = await file.read()
-    rec = _save_upload(project_id, file, content)
+    rec = await _save_upload(project_id, file, content)
     rec["scope"] = scope
     if scope == "evidence" and criterion_id:
         rec["criterion_id"] = criterion_id
@@ -547,6 +547,8 @@ async def upload_client_file(project_id: str, file: UploadFile = File(...), scop
 @portal.delete("/client/projects/{project_id}/files/{file_id}")
 async def delete_client_file(project_id: str, file_id: str, criterion_id: str = None, user: dict = Depends(current_client_write)):
     p = await _get_owned_project(project_id, user)
+    if p.get("status") not in ("draft", "changes_requested"):
+        raise HTTPException(status_code=409, detail="Files can only be removed while the project is editable.")
     if criterion_id:
         arr = (p.get("evidence") or {}).get(criterion_id, [])
         rec = next((f for f in arr if f["id"] == file_id), None)
@@ -555,10 +557,7 @@ async def delete_client_file(project_id: str, file_id: str, criterion_id: str = 
         rec = next((f for f in (p.get("media") or []) if f["id"] == file_id), None)
         await db.certification_projects.update_one({"id": project_id}, {"$pull": {"media": {"id": file_id}}})
     if rec:
-        try:
-            (EVIDENCE_DIR / project_id / rec["filename"]).unlink(missing_ok=True)
-        except Exception:
-            pass
+        await storage.delete_by_key(f"evidence/{project_id}/{rec['filename']}")
     return {"deleted": True}
 
 
@@ -901,6 +900,22 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
         "finalized_by": user["id"],
         "finalized_at": now_iso(),
     }
+    if data.decision == "certified":
+        try:
+            from app.services import pdf_service, storage
+            tpl = view_template(p["project_type"], occ)
+            cat_names = {c["id"]: c["name"] for c in (tpl.get("categories") or [])}
+            record_for_pdf = {**official, "categories": final_score.get("categories")}
+            cert_key = f"certificates/{project_id}-certificate.pdf"
+            docket_key = f"certificates/{project_id}-docket.pdf"
+            await storage.save_bytes(cert_key, pdf_service.build_certificate(p, record_for_pdf),
+                                     "application/pdf", original_name="RES-Certificate.pdf")
+            await storage.save_bytes(docket_key, pdf_service.build_docket(p, record_for_pdf, cat_names),
+                                     "application/pdf", original_name="RES-Docket.pdf")
+            official["certificate_pdf_url"] = f"{BACKEND_URL}/api/uploads/{cert_key}"
+            official["docket_pdf_url"] = f"{BACKEND_URL}/api/uploads/{docket_key}"
+        except Exception as e:
+            logger.error(f"certificate PDF generation failed for {project_id}: {e}")
     await db.certification_projects.update_one(
         {"id": project_id},
         {"$set": {

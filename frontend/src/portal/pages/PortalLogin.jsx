@@ -59,7 +59,7 @@ export default function PortalLogin() {
           </form>
           <p className="text-sm text-charcoal/60 mt-6 text-center">
             New client?{" "}
-            <Link to="/portal/register" className="text-natural-green font-medium hover:underline" data-testid="go-register-link">Create an account</Link>
+            <Link to="/portal/register" className="text-deep-forest-green font-medium hover:underline" data-testid="go-register-link">Create an account</Link>
           </p>
         </div>
         <p className="text-xs text-charcoal/40 text-center mt-6">Reviewer & admin accounts are provisioned by RES.</p>

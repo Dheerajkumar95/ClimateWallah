@@ -14,11 +14,12 @@ load_dotenv(ROOT_DIR / ".env")
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, FileResponse, PlainTextResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from database import db, create_indexes, IMAGE_DIR, DOC_DIR
+from database import db, create_indexes
+from app.services import storage
+from app.api.files import router as files_router
 from auth import (
     hash_password, verify_password, create_access_token, set_auth_cookies,
     clear_auth_cookies, new_csrf_token, get_current_admin, admin_write,
@@ -247,7 +248,7 @@ async def upload_document(file: UploadFile = File(...), admin: dict = Depends(ad
     if len(content) > MAX_SIZE:
         raise HTTPException(400, "File too large")
     fname = f"{uuid.uuid4().hex}{ALLOWED_DOC[file.content_type]}"
-    (DOC_DIR / fname).write_bytes(content)
+    await storage.save_bytes(f"documents/{fname}", content, file.content_type, original_name=file.filename)
     url = f"{BACKEND_URL}/api/uploads/documents/{fname}"
     return {"url": url, "filename": fname, "original_name": file.filename, "size": len(content)}
 
@@ -749,7 +750,7 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(admin
     if len(content) > MAX_SIZE:
         raise HTTPException(400, "File too large")
     fname = f"{uuid.uuid4().hex}{ext}"
-    (IMAGE_DIR / fname).write_bytes(content)
+    await storage.save_bytes(f"images/{fname}", content, file.content_type, original_name=file.filename)
     url = f"{BACKEND_URL}/api/uploads/images/{fname}"
     doc = {"id": str(uuid.uuid4()), "filename": fname, "url": url, "size": len(content),
            "content_type": file.content_type, "original_name": file.filename, "created_at": now_iso()}
@@ -766,10 +767,7 @@ async def list_media(admin: dict = Depends(get_current_admin)):
 async def delete_media(mid: str, admin: dict = Depends(admin_write)):
     doc = await db.media.find_one({"id": mid})
     if doc:
-        try:
-            (IMAGE_DIR / doc["filename"]).unlink(missing_ok=True)
-        except Exception:
-            pass
+        await storage.delete_by_key(f"images/{doc['filename']}")
         await db.media.delete_one({"id": mid})
     return {"message": "Deleted"}
 
@@ -783,16 +781,13 @@ async def upload_capability(file: UploadFile = File(...), admin: dict = Depends(
     if len(content) > MAX_SIZE:
         raise HTTPException(400, "File too large")
     fname = f"capability-{uuid.uuid4().hex}.pdf"
-    (DOC_DIR / fname).write_bytes(content)
+    await storage.save_bytes(f"documents/{fname}", content, "application/pdf", original_name=file.filename)
     url = f"{BACKEND_URL}/api/uploads/documents/{fname}"
     doc = {"id": "capability", "filename": fname, "url": url, "size": len(content),
            "original_name": file.filename, "updated_at": now_iso()}
     old = await db.documents.find_one({"id": "capability"})
     if old and old.get("filename"):
-        try:
-            (DOC_DIR / old["filename"]).unlink(missing_ok=True)
-        except Exception:
-            pass
+        await storage.delete_by_key(f"documents/{old['filename']}")
     await db.documents.update_one({"id": "capability"}, {"$set": doc}, upsert=True)
     return clean(doc)
 
@@ -973,7 +968,9 @@ async def sitemap():
 app.include_router(api)
 from portal import portal as portal_router
 app.include_router(portal_router)
-app.mount("/api/uploads", StaticFiles(directory=str(ROOT_DIR / "uploads")), name="uploads")
+app.include_router(files_router)
+from app.api.ghg import router as ghg_router
+app.include_router(ghg_router)
 
 app.add_middleware(
     CORSMiddleware,

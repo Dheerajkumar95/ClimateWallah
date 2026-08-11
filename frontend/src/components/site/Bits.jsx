@@ -21,7 +21,7 @@ export function CertBadge({ children }) {
 
 export function Overline({ children, className = "" }) {
   return (
-    <span className={`text-sm font-sans uppercase tracking-[0.2em] font-semibold text-natural-green ${className}`}>
+    <span className={`text-sm font-sans uppercase tracking-[0.2em] font-semibold text-deep-forest-green ${className}`}>
       {children}
     </span>
   );

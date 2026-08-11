@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Loader2, Lock, Check, CircleDot, ShieldCheck, Send, Award, AlertCircle, ArrowRight, Clock } from "lucide-react";
+import { Loader2, Lock, Check, CircleDot, ShieldCheck, Send, Award, AlertCircle, ArrowRight, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { apiError } from "../PortalAuthContext";
@@ -18,7 +18,7 @@ export default function ProjectOverview() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
   if (d === null) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-natural-green" /></div>;
-  if (d === false) return <Card className="text-center py-12"><p className="text-charcoal/60">Project not found.</p><Link to="/portal/projects" className="text-natural-green hover:underline text-sm mt-3 inline-block">← Back</Link></Card>;
+  if (d === false) return <Card className="text-center py-12"><p className="text-charcoal/60">Project not found.</p><Link to="/portal/projects" className="text-deep-forest-green hover:underline text-sm mt-3 inline-block">← Back</Link></Card>;
 
   const { project, score, sections, timeline, editable } = d;
   const currentSection = sections.find((s) => s.state === "current") || sections.find((s) => s.state !== "complete") || sections[0];
@@ -53,6 +53,16 @@ export default function ProjectOverview() {
             <span className="font-medium text-charcoal">{d.official_record.decision === "certified" ? `Certified — ${d.official_record.band}` : "Not certified"}</span>
           </div>
           <div className="text-sm text-charcoal/70 mt-1.5">Final score <strong>{d.official_record.final_total}/{d.official_record.total_max}</strong>{d.official_record.certificate_number && <> · Certificate <strong>{d.official_record.certificate_number}</strong></>}</div>
+          {d.official_record.decision === "certified" && (d.official_record.certificate_pdf_url || d.official_record.docket_pdf_url) && (
+            <div className="flex flex-wrap gap-2.5 mt-3">
+              {d.official_record.certificate_pdf_url && (
+                <a href={d.official_record.certificate_pdf_url} target="_blank" rel="noreferrer" data-testid="download-certificate" className="inline-flex items-center gap-1.5 rounded-lg bg-natural-green text-deep-forest-green px-4 py-2 text-sm font-semibold hover:bg-deep-forest-green hover:text-off-white transition-colors"><Download className="h-4 w-4" /> Certificate (PDF)</a>
+              )}
+              {d.official_record.docket_pdf_url && (
+                <a href={d.official_record.docket_pdf_url} target="_blank" rel="noreferrer" data-testid="download-docket" className="inline-flex items-center gap-1.5 rounded-lg border border-deep-forest-green/40 text-deep-forest-green px-4 py-2 text-sm font-medium hover:bg-deep-forest-green/5 transition-colors"><Download className="h-4 w-4" /> Assessment docket</a>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -82,7 +92,7 @@ export default function ProjectOverview() {
                     <button key={s.id} disabled={!clickable} onClick={() => clickable && gotoSection(s.slug)} data-testid={`overview-section-${s.slug}`}
                       className={`w-full flex items-center justify-between rounded-xl border px-4 py-3.5 text-left transition-colors ${clickable ? "bg-white hover:border-turquoise" : "bg-off-white opacity-60 cursor-not-allowed"} ${s.state === "current" ? "border-turquoise ring-1 ring-turquoise/40" : "border-border"}`}>
                       <div className="flex items-center gap-3">
-                        <span className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold ${s.state === "complete" ? "bg-natural-green text-white" : s.state === "current" ? "bg-turquoise text-deep-forest-green" : s.state === "locked" ? "bg-warm-beige text-charcoal/40" : "bg-deep-forest-green/10 text-deep-forest-green"}`}>
+                        <span className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold ${s.state === "complete" ? "bg-natural-green text-deep-forest-green" : s.state === "current" ? "bg-turquoise text-deep-forest-green" : s.state === "locked" ? "bg-warm-beige text-charcoal/40" : "bg-deep-forest-green/10 text-deep-forest-green"}`}>
                           <Icon className="h-4 w-4" />
                         </span>
                         <div>

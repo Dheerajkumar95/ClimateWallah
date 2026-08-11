@@ -10,7 +10,7 @@ const Cardy = ({ to, Icon, title, desc, testid }) => (
     <span className="relative inline-flex h-14 w-14 items-center justify-center rounded-xl bg-deep-forest-green text-off-white"><Icon className="h-7 w-7" /></span>
     <h2 className="relative mt-6 text-2xl font-serif text-deep-forest-green">{title}</h2>
     <p className="relative mt-2 text-sm text-charcoal/65 leading-relaxed">{desc}</p>
-    <span className="relative mt-6 inline-flex items-center gap-2 text-sm font-medium text-natural-green group-hover:gap-3 transition-all">Open workspace <ArrowRight className="h-4 w-4" /></span>
+    <span className="relative mt-6 inline-flex items-center gap-2 text-sm font-medium text-deep-forest-green group-hover:gap-3 transition-all">Open workspace <ArrowRight className="h-4 w-4" /></span>
   </Link>
 );
 

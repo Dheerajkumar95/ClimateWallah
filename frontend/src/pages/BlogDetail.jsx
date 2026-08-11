@@ -37,7 +37,7 @@ export default function BlogDetail() {
       )}
 
       <article className="max-w-3xl mx-auto px-6 md:px-12 pb-24">
-        <div className="prose prose-lg max-w-none text-charcoal/85 leading-relaxed [&_p]:mb-5 [&_h2]:font-serif [&_h2]:text-3xl [&_h2]:text-deep-forest-green [&_h2]:mt-10 [&_h2]:mb-4 [&_a]:text-natural-green [&_ul]:list-disc [&_ul]:pl-6"
+        <div className="prose prose-lg max-w-none text-charcoal/85 leading-relaxed [&_p]:mb-5 [&_h2]:font-serif [&_h2]:text-3xl [&_h2]:text-deep-forest-green [&_h2]:mt-10 [&_h2]:mb-4 [&_a]:text-deep-forest-green [&_ul]:list-disc [&_ul]:pl-6"
           dangerouslySetInnerHTML={{ __html: p.content || `<p>${p.excerpt || ""}</p>` }} />
       </article>
 

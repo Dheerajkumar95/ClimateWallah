@@ -53,7 +53,7 @@ export function PortalLayout({ role }) {
               data-testid={`portal-nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
-                  isActive ? "bg-natural-green text-white" : "text-charcoal/70 hover:bg-warm-beige"
+                  isActive ? "bg-natural-green text-deep-forest-green font-semibold" : "text-charcoal/70 hover:bg-warm-beige"
                 }`
               }
             >
@@ -86,7 +86,7 @@ export function PortalLayout({ role }) {
             <ShieldCheck className="h-4 w-4 text-natural-green" />
             RES Internal / Preliminary Assessment — not an official IGBC certification.
           </div>
-          <Link to="/" className="text-sm text-natural-green hover:underline">← Back to website</Link>
+          <Link to="/" className="text-sm text-deep-forest-green hover:underline">← Back to website</Link>
         </header>
         <main className="flex-1 p-5 lg:p-8 max-w-[1200px] w-full mx-auto">
           <Outlet />

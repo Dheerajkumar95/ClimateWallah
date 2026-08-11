@@ -88,7 +88,7 @@ export default function Assessment() {
             <form onSubmit={submit} data-testid="assessment-form" className="space-y-6">
               {questions.map((q, qi) => (
                 <div key={q.id} className="bg-white border border-black/5 rounded-lg p-6">
-                  <div className="text-xs uppercase tracking-widest text-natural-green mb-1">{q.category}</div>
+                  <div className="text-xs uppercase tracking-widest text-deep-forest-green mb-1">{q.category}</div>
                   <p className="font-medium text-charcoal mb-4">{qi + 1}. {q.text}</p>
                   <div className="grid sm:grid-cols-2 gap-2">
                     {q.options.map((o, oi) => (
@@ -111,7 +111,7 @@ export default function Assessment() {
           )}
         </div>
       </section>
-      <style>{`.inp{width:100%;background:#fff;border:1px solid hsl(var(--border));border-radius:0.5rem;padding:0.7rem 1rem;font-size:0.95rem;outline:none}.inp:focus{box-shadow:0 0 0 2px #2A5934;border-color:#2A5934}`}</style>
+      <style>{`.inp{width:100%;background:#fff;border:1px solid hsl(var(--border));border-radius:0.5rem;padding:0.7rem 1rem;font-size:0.95rem;outline:none}.inp:focus{box-shadow:0 0 0 2px #27F580;border-color:#27F580}`}</style>
     </div>
   );
 }

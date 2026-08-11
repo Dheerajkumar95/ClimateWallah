@@ -67,16 +67,16 @@ export function HeroCarousel() {
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             className="max-w-xl py-10"
           >
-            <span className="inline-block text-xs font-semibold tracking-[0.2em] uppercase text-natural-green mb-5">{s.kicker}</span>
+            <span className="inline-block text-xs font-semibold tracking-[0.2em] uppercase text-deep-forest-green mb-5">{s.kicker}</span>
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-charcoal">
               {s.titleA}{" "}
-              <span className="text-natural-green">{s.titleB}</span>
+              <span className="text-deep-forest-green">{s.titleB}</span>
             </h1>
             <p className="mt-6 text-base md:text-lg text-charcoal/65 leading-relaxed max-w-lg">{s.subtitle}</p>
             <Link
               to={s.to}
               data-testid="hero-primary-cta"
-              className="group mt-9 inline-flex items-center gap-2 rounded-full bg-natural-green text-off-white px-7 py-3.5 font-medium hover:bg-deep-forest-green transition-colors"
+              className="group mt-9 inline-flex items-center gap-2 rounded-full bg-natural-green text-deep-forest-green px-7 py-3.5 font-semibold hover:bg-deep-forest-green hover:text-off-white transition-colors"
             >
               {s.cta}
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />

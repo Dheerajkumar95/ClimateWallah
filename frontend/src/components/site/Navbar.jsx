@@ -9,7 +9,7 @@ const topic = (label) => `/contact?topic=${encodeURIComponent(label)}`;
 
 const TOOLS_MENU = [
   { title: "Tools & Calculators", items: [
-    { label: "GHG Accounting", to: topic("GHG Accounting") },
+    { label: "GHG Emissions Calculator", to: "/tools/ghg-calculator" },
     { label: "LCA", to: topic("Life Cycle Assessment (LCA)") },
   ]},
   { title: "Compliance", items: [

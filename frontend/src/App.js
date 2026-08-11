@@ -26,6 +26,7 @@ import Industries from "@/pages/Industries";
 import IndustryDetail from "@/pages/IndustryDetail";
 import Resources from "@/pages/Resources";
 import Events from "@/pages/Events";
+import GHGCalculator from "@/pages/GHGCalculator";
 import NotFound from "@/pages/NotFound";
 import { FloatingActions } from "@/components/site/FloatingActions";
 
@@ -99,6 +100,7 @@ function App() {
               <Route path="/industries/:slug" element={<IndustryDetail />} />
               <Route path="/resources" element={<Resources />} />
               <Route path="/events" element={<Events />} />
+              <Route path="/tools/ghg-calculator" element={<GHGCalculator />} />
               <Route path="/legal/:slug" element={<Legal />} />
               <Route path="*" element={<NotFound />} />
             </Route>

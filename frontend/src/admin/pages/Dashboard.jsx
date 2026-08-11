@@ -46,7 +46,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4 text-3xl font-serif text-deep-forest-green">{s.value ?? 0}</div>
             <div className="text-sm text-charcoal/60">{s.label}</div>
-            {s.sub && <div className="text-xs text-natural-green mt-1">{s.sub}</div>}
+            {s.sub && <div className="text-xs text-deep-forest-green mt-1">{s.sub}</div>}
           </div>
         ))}
       </div>

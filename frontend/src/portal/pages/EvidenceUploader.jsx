@@ -63,7 +63,7 @@ export function EvidenceUploader({ projectId, criterionId, files = [], editable 
         <>
           <input ref={inputRef} type="file" multiple hidden onChange={upload} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.dwg,.zip" data-testid={`evidence-input-${criterionId}`} />
           <button onClick={() => inputRef.current?.click()} disabled={busy} data-testid={`evidence-upload-${criterionId}`}
-            className="inline-flex items-center gap-1.5 text-xs text-natural-green hover:underline">
+            className="inline-flex items-center gap-1.5 text-xs text-deep-forest-green hover:underline">
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />} Attach evidence
           </button>
         </>

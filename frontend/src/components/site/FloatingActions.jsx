@@ -1,6 +1,6 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
-import { MessageCircle, CalendarCheck } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 
 export function FloatingActions() {
@@ -13,13 +13,6 @@ export function FloatingActions() {
 
   return (
     <div className="fixed z-[60] bottom-5 right-5 flex flex-col items-end gap-3">
-      <Link
-        to="/book"
-        data-testid="sticky-book-cta"
-        className="hidden sm:inline-flex items-center gap-2 rounded-full bg-deep-forest-green text-off-white pl-5 pr-6 py-3 shadow-lg hover:bg-natural-green transition-colors"
-      >
-        <CalendarCheck className="h-5 w-5" /> Book Free Consultation
-      </Link>
       {waUrl && (
         <a
           href={waUrl}

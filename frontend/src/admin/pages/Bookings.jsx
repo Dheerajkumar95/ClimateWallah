@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Modal, ConfirmDialog, Select, TextArea, Btn, Field, Loader, Empty } from "@/admin/components/ui";
 
 const STATUSES = ["All", "New", "Confirmed", "Completed", "Cancelled"];
-const color = { New: "bg-natural-green text-off-white", Confirmed: "bg-light-mint text-deep-forest-green", Completed: "bg-emerald-100 text-emerald-800", Cancelled: "bg-charcoal/15 text-charcoal/70" };
+const color = { New: "bg-natural-green text-deep-forest-green", Confirmed: "bg-light-mint text-deep-forest-green", Completed: "bg-emerald-100 text-emerald-800", Cancelled: "bg-charcoal/15 text-charcoal/70" };
 
 export default function Bookings() {
   const [data, setData] = useState(null);

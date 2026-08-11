@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, Plus, UserPlus, X, Gavel } from "lucide-react";
+import { Loader2, Plus, UserPlus, X, Gavel, Download } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Btn, Field, TextInput } from "@/admin/components/ui";
@@ -318,7 +318,7 @@ function FinalizeModal({ projectId, onClose, onDone }) {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded-xl bg-off-white border border-border p-3"><div className="text-xs text-charcoal/50">Client claimed</div><div className="text-xl font-semibold text-charcoal/70">{d.claimed_score?.claimed_total || 0}</div></div>
               <div className="rounded-xl bg-off-white border border-border p-3"><div className="text-xs text-charcoal/50">Reviewer rec.</div><div className="text-xl font-semibold text-charcoal/70">{d.recommended_score?.claimed_total || 0}</div></div>
-              <div className="rounded-xl bg-natural-green/10 border border-natural-green/30 p-3"><div className="text-xs text-natural-green">Final</div><div className="text-xl font-semibold text-deep-forest-green" data-testid="final-total">{finalTotal}/{tpl?.total_max}</div></div>
+              <div className="rounded-xl bg-natural-green/10 border border-natural-green/30 p-3"><div className="text-xs text-deep-forest-green">Final</div><div className="text-xl font-semibold text-deep-forest-green" data-testid="final-total">{finalTotal}/{tpl?.total_max}</div></div>
             </div>
 
             <div className="space-y-3 max-h-[34vh] overflow-y-auto pr-1">
@@ -358,7 +358,15 @@ function FinalizeModal({ projectId, onClose, onDone }) {
             </div>
 
             {done ? (
-              <div className="rounded-xl bg-off-white border border-border px-4 py-3 text-sm text-charcoal/70">Recorded: <strong className="capitalize">{d.official_record?.decision}</strong> · Band {d.official_record?.band} · {d.official_record?.certificate_number || "no cert #"}</div>
+              <div className="rounded-xl bg-off-white border border-border px-4 py-3 text-sm text-charcoal/70">
+                <div>Recorded: <strong className="capitalize">{d.official_record?.decision}</strong> · Band {d.official_record?.band} · {d.official_record?.certificate_number || "no cert #"}</div>
+                {(d.official_record?.certificate_pdf_url || d.official_record?.docket_pdf_url) && (
+                  <div className="flex flex-wrap gap-2.5 mt-3">
+                    {d.official_record?.certificate_pdf_url && <a href={d.official_record.certificate_pdf_url} target="_blank" rel="noreferrer" data-testid="admin-download-certificate" className="inline-flex items-center gap-1.5 rounded-lg bg-natural-green text-deep-forest-green px-3.5 py-2 text-xs font-semibold hover:bg-deep-forest-green hover:text-off-white transition-colors"><Download className="h-3.5 w-3.5" /> Certificate</a>}
+                    {d.official_record?.docket_pdf_url && <a href={d.official_record.docket_pdf_url} target="_blank" rel="noreferrer" data-testid="admin-download-docket" className="inline-flex items-center gap-1.5 rounded-lg border border-deep-forest-green/40 text-deep-forest-green px-3.5 py-2 text-xs font-medium hover:bg-deep-forest-green/5 transition-colors"><Download className="h-3.5 w-3.5" /> Docket</a>}
+                  </div>
+                )}
+              </div>
             ) : (
               <Btn onClick={submit} disabled={busy} className="w-full" data-testid="finalize-submit-btn">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Record certification decision</Btn>
             )}

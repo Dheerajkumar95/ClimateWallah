@@ -70,7 +70,7 @@ export function AdminLayout() {
         </div>
         <div className="px-3 pt-3">
           <NavLink to="/admin" end onClick={() => setOpen(false)} data-testid="admin-switch-workspace"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-turquoise/15 text-turquoise hover:bg-turquoise/25 transition-colors">
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-turquoise/15 text-deep-forest-green hover:bg-turquoise/25 transition-colors">
             <Workflow className="h-4 w-4" /> Switch Workspace
           </NavLink>
         </div>

@@ -29,7 +29,7 @@ export default function Team() {
                 <div className="bg-white border border-black/5 rounded-lg p-8 flex flex-col items-center text-center h-full">
                   <TeamAvatar name={m.name} image={m.profile_image} />
                   <h2 className="mt-6 text-2xl text-deep-forest-green">{m.name}</h2>
-                  <p className="text-natural-green font-medium mt-1">{m.designation}</p>
+                  <p className="text-deep-forest-green font-medium mt-1">{m.designation}</p>
                   {m.credentials && <div className="mt-3"><CertBadge>{m.credentials}</CertBadge></div>}
                   {m.biography && <p className="mt-4 text-sm text-charcoal/70 leading-relaxed">{m.biography}</p>}
                   {m.linkedin_url && (

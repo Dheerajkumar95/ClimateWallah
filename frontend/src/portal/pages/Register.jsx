@@ -97,7 +97,7 @@ export default function Register() {
               </form>
               <p className="text-sm text-charcoal/60 mt-6 text-center">
                 Already registered?{" "}
-                <Link to="/portal/login" className="text-natural-green font-medium hover:underline">Sign in</Link>
+                <Link to="/portal/login" className="text-deep-forest-green font-medium hover:underline">Sign in</Link>
               </p>
             </>
           ) : (
@@ -118,7 +118,7 @@ export default function Register() {
               </form>
               <div className="flex items-center justify-between mt-6 text-sm">
                 <button onClick={() => setStep("details")} className="text-charcoal/60 hover:underline">← Edit details</button>
-                <button onClick={resend} className="text-natural-green font-medium hover:underline" data-testid="resend-otp-btn">Resend code</button>
+                <button onClick={resend} className="text-deep-forest-green font-medium hover:underline" data-testid="resend-otp-btn">Resend code</button>
               </div>
             </>
           )}

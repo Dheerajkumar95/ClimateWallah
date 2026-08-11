@@ -8,13 +8,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        "deep-forest-green": "#133A26",
-        "natural-green": "#2A5934",
-        "turquoise": "#27F5C2",
-        "light-mint": "#D1E8D5",
-        "off-white": "#F8F9F7",
-        "warm-beige": "#F2EBE5",
-        "charcoal": "#1C211E",
+        "deep-forest-green": "#172033",
+        "natural-green": "#27F580",
+        "navy": "#172033",
+        "deep-navy": "#0F1626",
+        "bright-green": "#27F580",
+        "turquoise": "#27F580",
+        "light-mint": "#D8F7E7",
+        "off-white": "#F8FAFB",
+        "warm-beige": "#EEF1F4",
+        "charcoal": "#172033",
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

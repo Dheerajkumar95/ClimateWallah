@@ -25,7 +25,7 @@ function EventCard({ e, past }) {
         {e.description && <p className="mt-2 text-sm text-charcoal/65 leading-relaxed line-clamp-3">{e.description}</p>}
         <div className="mt-auto pt-4">
           {!past && (e.register_url || e.link) ? (
-            <a href={e.register_url || e.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-natural-green font-medium hover:gap-2.5 transition-all">
+            <a href={e.register_url || e.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-deep-forest-green font-medium hover:gap-2.5 transition-all">
               Register <ArrowUpRight className="h-4 w-4" />
             </a>
           ) : (

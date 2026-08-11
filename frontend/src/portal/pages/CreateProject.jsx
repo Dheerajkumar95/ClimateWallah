@@ -72,7 +72,7 @@ export default function CreateProject() {
         {STEPS.map((s, i) => (
           <React.Fragment key={s}>
             <button onClick={() => i <= step && setStep(i)} className="flex items-center gap-2 shrink-0" data-testid={`step-${i}`}>
-              <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${i < step ? "bg-natural-green text-white" : i === step ? "bg-deep-forest-green text-white" : "bg-warm-beige text-charcoal/50"}`}>
+              <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${i < step ? "bg-natural-green text-deep-forest-green" : i === step ? "bg-deep-forest-green text-white" : "bg-warm-beige text-charcoal/50"}`}>
                 {i < step ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span className={`text-sm ${i === step ? "text-charcoal font-medium" : "text-charcoal/50"}`}>{s}</span>
@@ -171,7 +171,7 @@ export default function CreateProject() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-charcoal/80">Project team</label>
-              <button onClick={addMember} className="inline-flex items-center gap-1.5 text-sm text-natural-green hover:underline" data-testid="cp-add-member"><Plus className="h-4 w-4" /> Add member</button>
+              <button onClick={addMember} className="inline-flex items-center gap-1.5 text-sm text-deep-forest-green hover:underline" data-testid="cp-add-member"><Plus className="h-4 w-4" /> Add member</button>
             </div>
             {form.team.length === 0 && <p className="text-sm text-charcoal/50">No team members added.</p>}
             {form.team.map((m, i) => (

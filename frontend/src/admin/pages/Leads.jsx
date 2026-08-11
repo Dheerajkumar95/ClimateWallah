@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Modal, ConfirmDialog, Select, TextArea, TextInput, Btn, Field, Loader, Empty } from "@/admin/components/ui";
 
 const STATUSES = ["All", "New", "Contacted", "Follow-up", "Qualified", "Converted", "Closed"];
-const color = { New: "bg-natural-green text-off-white", Contacted: "bg-light-mint text-deep-forest-green", "Follow-up": "bg-amber-100 text-amber-800", Qualified: "bg-blue-100 text-blue-800", Converted: "bg-emerald-100 text-emerald-800", Closed: "bg-charcoal/15 text-charcoal/70" };
+const color = { New: "bg-natural-green text-deep-forest-green", Contacted: "bg-light-mint text-deep-forest-green", "Follow-up": "bg-amber-100 text-amber-800", Qualified: "bg-blue-100 text-blue-800", Converted: "bg-emerald-100 text-emerald-800", Closed: "bg-charcoal/15 text-charcoal/70" };
 
 export default function Leads() {
   const [data, setData] = useState(null);

@@ -44,7 +44,7 @@ export default function MyProjects() {
                   <ProgressBar value={p.claimed_total} max={p.total_max} />
                   <div className="mt-3 flex items-center justify-between">
                     <BandBadge band={p.band} />
-                    <span className="inline-flex items-center gap-1 text-sm text-natural-green group-hover:gap-2 transition-all">Open <ArrowRight className="h-4 w-4" /></span>
+                    <span className="inline-flex items-center gap-1 text-sm text-deep-forest-green group-hover:gap-2 transition-all">Open <ArrowRight className="h-4 w-4" /></span>
                   </div>
                 </>
               )}

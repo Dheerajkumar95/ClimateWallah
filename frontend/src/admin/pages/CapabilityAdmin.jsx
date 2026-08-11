@@ -38,7 +38,7 @@ export default function CapabilityAdmin() {
               <div className="font-medium text-charcoal">{doc.original_name || "Capability Profile.pdf"}</div>
               <div className="text-sm text-charcoal/60">{doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : ""} · Updated {(doc.updated_at || "").slice(0, 10)}</div>
               <div className="mt-3 flex gap-3">
-                <a href={doc.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-natural-green font-medium hover:underline"><Download className="h-4 w-4" /> Preview / Download</a>
+                <a href={doc.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-deep-forest-green font-medium hover:underline"><Download className="h-4 w-4" /> Preview / Download</a>
               </div>
             </div>
           </div>

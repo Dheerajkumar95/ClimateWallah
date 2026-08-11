@@ -43,7 +43,7 @@ export default function ClientDashboard() {
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium text-charcoal">Recent projects</h2>
-        <Link to="/portal/projects" className="text-sm text-natural-green hover:underline">View all</Link>
+        <Link to="/portal/projects" className="text-sm text-deep-forest-green hover:underline">View all</Link>
       </div>
       {projects.length === 0 ? (
         <Card className="text-center py-12">

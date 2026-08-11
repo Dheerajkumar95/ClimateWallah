@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Btn, Modal, ConfirmDialog, Select, TextArea, Loader, Empty } from "@/admin/components/ui";
 
 const STATUSES = ["All", "New", "Read", "Replied", "Closed"];
-const statusColor = { New: "bg-natural-green text-off-white", Read: "bg-light-mint text-deep-forest-green", Replied: "bg-warm-beige text-charcoal", Closed: "bg-charcoal/15 text-charcoal/70" };
+const statusColor = { New: "bg-natural-green text-deep-forest-green", Read: "bg-light-mint text-deep-forest-green", Replied: "bg-warm-beige text-charcoal", Closed: "bg-charcoal/15 text-charcoal/70" };
 
 export default function Enquiries() {
   const [data, setData] = useState(null);

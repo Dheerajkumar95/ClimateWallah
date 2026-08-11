@@ -102,7 +102,7 @@ export default function CertificationFinder() {
           )}
         </div>
       </section>
-      <style>{`.inp{width:100%;background:#fff;border:1px solid hsl(var(--border));border-radius:0.5rem;padding:0.7rem 1rem;font-size:0.95rem;outline:none}.inp:focus{box-shadow:0 0 0 2px #2A5934;border-color:#2A5934}`}</style>
+      <style>{`.inp{width:100%;background:#fff;border:1px solid hsl(var(--border));border-radius:0.5rem;padding:0.7rem 1rem;font-size:0.95rem;outline:none}.inp:focus{box-shadow:0 0 0 2px #27F580;border-color:#27F580}`}</style>
     </div>
   );
 }

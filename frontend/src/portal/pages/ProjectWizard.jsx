@@ -120,7 +120,7 @@ export default function ProjectWizard() {
           <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-3" />
           <p className="text-charcoal font-medium">Checklist under configuration</p>
           <p className="text-sm text-charcoal/60 mt-1 max-w-md mx-auto">The certification checklist for <strong>{project.project_type}</strong> projects is being finalised. The wizard will open here once it's available. No score is shown until then.</p>
-          <Link to="/portal/projects" className="inline-block mt-5 text-sm text-natural-green hover:underline">← Back to projects</Link>
+          <Link to="/portal/projects" className="inline-block mt-5 text-sm text-deep-forest-green hover:underline">← Back to projects</Link>
         </Card>
       </div>
     );
@@ -186,7 +186,7 @@ export default function ProjectWizard() {
                 } ${locked ? "opacity-55 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${done ? "bg-natural-green text-white" : active === i ? "bg-deep-forest-green text-white" : "bg-warm-beige text-charcoal/60"}`}>
+                  <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${done ? "bg-natural-green text-deep-forest-green" : active === i ? "bg-deep-forest-green text-white" : "bg-warm-beige text-charcoal/60"}`}>
                     {locked ? <Lock className="h-3 w-3" /> : done ? <Check className="h-3.5 w-3.5" /> : i + 1}
                   </span>
                   <span className="text-sm font-medium text-charcoal leading-tight">{c.name}</span>

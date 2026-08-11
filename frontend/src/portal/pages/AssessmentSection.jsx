@@ -115,7 +115,7 @@ export default function AssessmentSection() {
               return (
                 <button key={s.id} disabled={!clickable} onClick={() => clickable && navigate(`/portal/projects/${id}/assessment/${s.slug}`)} data-testid={`stepper-${s.slug}`}
                   className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors ${active ? "bg-turquoise/15 text-deep-forest-green font-medium" : clickable ? "text-charcoal/70 hover:bg-warm-beige" : "text-charcoal/35 cursor-not-allowed"}`}>
-                  <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] shrink-0 ${s.state === "complete" ? "bg-natural-green text-white" : active ? "bg-turquoise text-deep-forest-green" : "bg-warm-beige text-charcoal/50"}`}><Icon className="h-3.5 w-3.5" /></span>
+                  <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] shrink-0 ${s.state === "complete" ? "bg-natural-green text-deep-forest-green" : active ? "bg-turquoise text-deep-forest-green" : "bg-warm-beige text-charcoal/50"}`}><Icon className="h-3.5 w-3.5" /></span>
                   {i + 1}. {s.name}
                 </button>
               );
