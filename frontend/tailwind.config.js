@@ -10,6 +10,7 @@ module.exports = {
       colors: {
         "deep-forest-green": "#133A26",
         "natural-green": "#2A5934",
+        "turquoise": "#27F5C2",
         "light-mint": "#D1E8D5",
         "off-white": "#F8F9F7",
         "warm-beige": "#F2EBE5",

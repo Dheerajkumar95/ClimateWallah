@@ -13,7 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (user && user !== false) return <Navigate to={location.state?.from?.pathname || "/admin/dashboard"} replace />;
+  if (user && user !== false) return <Navigate to={location.state?.from?.pathname || "/admin"} replace />;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -21,7 +21,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(identifier, password);
-      navigate(location.state?.from?.pathname || "/admin/dashboard", { replace: true });
+      navigate(location.state?.from?.pathname || "/admin", { replace: true });
     } catch (err) {
       setError(apiError(err.response?.data?.detail) || "Invalid credentials");
     } finally {

@@ -337,6 +337,7 @@ async def create_client_project(data: CreateProjectInput, user: dict = Depends(c
         "snapshots": [],
         "created_at": now_iso(),
         "updated_at": now_iso(),
+        "timeline": [{"event": "Project Created", "from": None, "to": "draft", "actor": user.get("name") or "Client", "at": now_iso()}],
     }
     await db.certification_projects.insert_one(project)
     return _project_summary(project)
@@ -365,6 +366,126 @@ async def get_client_project(project_id: str, user: dict = Depends(current_clien
 async def get_client_project_template(project_id: str, user: dict = Depends(current_client)):
     p = await _get_owned_project(project_id, user)
     return view_template(p["project_type"], p.get("occupancy_type", "owner"))
+
+
+async def _add_timeline(project_id: str, event: str, frm, to, actor: str, note: str = None):
+    ev = {"event": event, "from": frm, "to": to, "actor": actor, "at": now_iso()}
+    if note:
+        ev["note"] = note
+    await db.certification_projects.update_one({"id": project_id}, {"$push": {"timeline": ev}})
+
+
+def _section_states(p: dict, tpl: dict):
+    """Return per-section lock/complete state for the sequential wizard."""
+    if tpl.get("under_configuration"):
+        return []
+    completed = set(p.get("completed_categories") or [])
+    current = p.get("current_category_index", 0)
+    responses = p.get("responses") or {}
+    out = []
+    for c in tpl["categories"]:
+        mand = [cr for cr in c["criteria"] if cr["mandatory"]]
+        answered = sum(1 for cr in mand if (responses.get(cr["id"]) or {}).get("met"))
+        remaining = max(0, len(mand) - answered)
+        if c["id"] in completed:
+            state = "complete"
+        elif c["order"] == current:
+            state = "current"
+        elif c["order"] < current:
+            state = "unlocked"
+        else:
+            state = "locked"
+        out.append({
+            "id": c["id"], "slug": c["slug"], "name": c["name"], "order": c["order"],
+            "max_points": c["max_points"], "state": state, "required_remaining": remaining,
+        })
+    return out
+
+
+@portal.get("/client/projects/{project_id}/assessment")
+async def get_assessment_overview(project_id: str, user: dict = Depends(current_client)):
+    p = await _get_owned_project(project_id, user)
+    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    score = score_project(p)
+    return {
+        "project": {"id": p["id"], "name": p["name"], "project_type": p["project_type"],
+                    "occupancy_type": p.get("occupancy_type", "owner"), "status": p.get("status", "draft"),
+                    "rating_system": tpl.get("name"), "version": tpl.get("version")},
+        "under_configuration": tpl.get("under_configuration", False),
+        "score": score,
+        "sections": _section_states(p, tpl),
+        "timeline": p.get("timeline", []),
+        "reviewer_comment": p.get("reviewer_comment") if p.get("status") == "changes_requested" else None,
+        "official_record": p.get("official_record"),
+        "editable": p.get("status") in ("draft", "changes_requested") and not p.get("under_configuration"),
+    }
+
+
+@portal.get("/client/projects/{project_id}/assessment/{slug}")
+async def get_assessment_section(project_id: str, slug: str, user: dict = Depends(current_client)):
+    p = await _get_owned_project(project_id, user)
+    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    if tpl.get("under_configuration"):
+        raise HTTPException(status_code=409, detail="Checklist under configuration for this project type.")
+    cats = tpl["categories"]
+    idx = next((i for i, c in enumerate(cats) if c["slug"] == slug), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    # Server-side lock enforcement — cannot open a section beyond the furthest unlocked one.
+    if idx > p.get("current_category_index", 0):
+        raise HTTPException(status_code=403, detail="This section is locked. Complete the previous sections first.")
+    c = cats[idx]
+    responses = p.get("responses") or {}
+    criteria = [{**cr, "response": responses.get(cr["id"], {})} for cr in c["criteria"]]
+    return {
+        "section": {"id": c["id"], "slug": c["slug"], "name": c["name"], "order": c["order"], "max_points": c["max_points"], "criteria": criteria},
+        "prev_slug": cats[idx - 1]["slug"] if idx > 0 else None,
+        "next_slug": cats[idx + 1]["slug"] if idx < len(cats) - 1 else None,
+        "is_last": idx == len(cats) - 1,
+        "editable": p.get("status") in ("draft", "changes_requested"),
+        "score": score_project(p),
+        "sections": _section_states(p, tpl),
+        "summary": {"name": p["name"], "project_type": p["project_type"], "status": p.get("status"), "occupancy_type": p.get("occupancy_type", "owner")},
+    }
+
+
+@portal.put("/client/projects/{project_id}/assessment/{slug}")
+async def save_assessment_section(project_id: str, slug: str, data: ResponsesInput, user: dict = Depends(current_client_write)):
+    p = await _get_owned_project(project_id, user)
+    if p.get("status") not in ("draft", "changes_requested"):
+        raise HTTPException(status_code=409, detail="Project can no longer be edited.")
+    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    if tpl.get("under_configuration"):
+        raise HTTPException(status_code=409, detail="Checklist under configuration for this project type.")
+    cats = tpl["categories"]
+    idx = next((i for i, c in enumerate(cats) if c["slug"] == slug), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    if idx > p.get("current_category_index", 0):
+        raise HTTPException(status_code=403, detail="This section is locked.")
+    c = cats[idx]
+    # merge responses for this section's criteria only
+    incoming = data.responses or {}
+    valid_ids = {cr["id"] for cr in c["criteria"]}
+    merged = {**(p.get("responses") or {})}
+    for k, v in incoming.items():
+        if k in valid_ids:
+            merged[k] = v
+    proceed = bool(data.completed_categories)  # frontend sends completed_categories=[...] to signal Save & Continue
+    update = {"responses": merged, "updated_at": now_iso()}
+    if proceed:
+        # require all mandatory in this section met
+        mand = [cr for cr in c["criteria"] if cr["mandatory"]]
+        if not all((merged.get(cr["id"]) or {}).get("met") for cr in mand):
+            raise HTTPException(status_code=400, detail="Complete all mandatory (prerequisite) items in this section before continuing.")
+        completed = list(set((p.get("completed_categories") or []) + [c["id"]]))
+        new_current = max(p.get("current_category_index", 0), min(len(cats) - 1, idx + 1))
+        update["completed_categories"] = completed
+        update["current_category_index"] = new_current
+    await db.certification_projects.update_one({"id": project_id}, {"$set": update})
+    next_slug = cats[idx + 1]["slug"] if (proceed and idx < len(cats) - 1) else None
+    merged_p = {**p, **update}
+    return {"saved": True, "score": score_project(merged_p), "next_slug": next_slug, "sections": _section_states(merged_p, tpl)}
 
 
 @portal.put("/client/projects/{project_id}/responses")
@@ -410,6 +531,7 @@ async def submit_client_project(project_id: str, user: dict = Depends(current_cl
             "updated_at": now_iso(),
         }, "$push": {"snapshots": snapshot}},
     )
+    await _add_timeline(project_id, "Submitted", p.get("status"), new_status, user.get("name") or "Client")
     return {"submitted": True, "version": snapshot["version"], "score": score, "status": new_status}
 
 
@@ -472,6 +594,7 @@ async def reviewer_request_changes(project_id: str, data: CommentInput, user: di
         "status": "changes_requested", "reviewer_comment": data.comment or p.get("reviewer_comment"),
         "updated_at": now_iso(),
     }})
+    await _add_timeline(project_id, "Changes Requested", p.get("status"), "changes_requested", user.get("name") or "Reviewer", note=data.comment)
     return {"status": "changes_requested"}
 
 
@@ -488,21 +611,30 @@ async def reviewer_forward(project_id: str, data: CommentInput, user: dict = Dep
     if data.comment:
         update["reviewer_comment"] = data.comment
     await db.certification_projects.update_one({"id": project_id}, {"$set": update})
+    await _add_timeline(project_id, "Forwarded to Admin", p.get("status"), "forwarded", user.get("name") or "Reviewer")
     return {"status": "forwarded", "recommended_score": rec_score}
 
 
 # ---------------- Admin portal ----------------
 @portal.get("/admin/portal/dashboard")
 async def admin_portal_dashboard(user: dict = Depends(current_admin_portal)):
+    cp = db.certification_projects
+    async def cnt(q): return await cp.count_documents(q)
     clients = await db.users.count_documents({"role": "client"})
     reviewers = await db.users.count_documents({"role": "reviewer"})
-    projects = await db.certification_projects.count_documents({})
-    submitted = await db.certification_projects.count_documents({"status": "submitted"})
-    assigned = await db.certification_projects.count_documents({"status": "assigned"})
-    unassigned = await db.certification_projects.count_documents({"status": "submitted", "reviewer_id": None})
     return {
-        "clients": clients, "reviewers": reviewers, "projects": projects,
-        "submitted": submitted, "assigned": assigned, "awaiting_assignment": unassigned,
+        "clients": clients,
+        "reviewers": reviewers,
+        "projects": await cnt({}),
+        "unassigned": await cnt({"status": {"$in": ["submitted", "changes_requested"]}, "reviewer_id": None}),
+        "submitted": await cnt({"status": "submitted"}),
+        "assigned": await cnt({"status": "assigned"}),
+        "under_review": await cnt({"status": "under_review"}),
+        "changes_requested": await cnt({"status": "changes_requested"}),
+        "awaiting_admin": await cnt({"status": "forwarded"}),
+        "certified": await cnt({"status": "certified"}),
+        "rejected": await cnt({"status": "rejected"}),
+        "drafts": await cnt({"status": "draft"}),
     }
 
 
@@ -575,6 +707,7 @@ async def admin_assign_reviewer(data: AssignInput, user: dict = Depends(current_
         "assigned_by": user["id"],
         "assigned_at": now_iso(),
     })
+    await _add_timeline(data.project_id, "Reviewer Assigned", project.get("status"), "assigned", user.get("name") or "Admin", note=reviewer.get("name"))
     return {"assigned": True}
 
 
@@ -632,4 +765,5 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
             "updated_at": now_iso(),
         }},
     )
+    await _add_timeline(project_id, "Certified" if data.decision == "certified" else "Rejected", p.get("status"), official["decision"], user.get("name") or "Admin", note=official.get("certificate_number"))
     return {"status": official["decision"], "official_record": official, "final_score": final_score}

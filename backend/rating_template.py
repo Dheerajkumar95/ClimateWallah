@@ -113,6 +113,86 @@ PROJECT_TYPE_TEMPLATE = {
 }
 
 
+RESIDENTIAL_TEMPLATE = {
+    "id": "igbc-green-homes-v3-residential",
+    "project_type": "Residential",
+    "name": "IGBC Green Homes — Residential",
+    "version": "3",
+    "occupancy_variants": ["owner", "tenant"],
+    "total_max": {"owner": 100, "tenant": 100},
+    "thresholds": [
+        {"band": "Uncertified", "min": 0, "max": 49},
+        {"band": "Certified", "min": 50, "max": 59},
+        {"band": "Silver", "min": 60, "max": 69},
+        {"band": "Gold", "min": 70, "max": 79},
+        {"band": "Platinum", "min": 80, "max": 100},
+    ],
+    "categories": [
+        {"id": "sd", "name": "Sustainable Design", "order": 0, "max_points": {"owner": 20, "tenant": 20}, "criteria": [
+            {"id": "sd-p1", "code": "SD Mandatory 1", "name": "Local Building Regulations", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "sd-p2", "code": "SD Mandatory 2", "name": "Soil Erosion Control", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "sd-1", "code": "SD Credit 1", "name": "Natural Topography & Preservation", "mandatory": False, "max_owner": 6, "max_tenant": 6},
+            {"id": "sd-2", "code": "SD Credit 2", "name": "Heat Island Reduction", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "sd-3", "code": "SD Credit 3", "name": "Basic Amenities & Access", "mandatory": False, "max_owner": 5, "max_tenant": 5},
+            {"id": "sd-4", "code": "SD Credit 4", "name": "Green Landscaping", "mandatory": False, "max_owner": 5, "max_tenant": 5},
+        ]},
+        {"id": "wc", "name": "Water Conservation", "order": 1, "max_points": {"owner": 18, "tenant": 18}, "criteria": [
+            {"id": "wc-p1", "code": "WC Mandatory 1", "name": "Rainwater Harvesting (Minimum)", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "wc-p2", "code": "WC Mandatory 2", "name": "Water Efficient Fixtures (Minimum)", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "wc-1", "code": "WC Credit 1", "name": "Rainwater Harvesting Enhancement", "mandatory": False, "max_owner": 6, "max_tenant": 6},
+            {"id": "wc-2", "code": "WC Credit 2", "name": "Water Efficient Landscaping", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "wc-3", "code": "WC Credit 3", "name": "Water Metering", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "wc-4", "code": "WC Credit 4", "name": "Wastewater Reuse", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+        ]},
+        {"id": "ee", "name": "Energy Efficiency", "order": 2, "max_points": {"owner": 28, "tenant": 28}, "criteria": [
+            {"id": "ee-p1", "code": "EE Mandatory 1", "name": "Minimum Energy Performance", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "ee-p2", "code": "EE Mandatory 2", "name": "CFC-Free Equipment", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "ee-1", "code": "EE Credit 1", "name": "Enhanced Energy Performance", "mandatory": False, "max_owner": 12, "max_tenant": 12},
+            {"id": "ee-2", "code": "EE Credit 2", "name": "On-site Renewable Energy", "mandatory": False, "max_owner": 8, "max_tenant": 8},
+            {"id": "ee-3", "code": "EE Credit 3", "name": "Energy Metering", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "ee-4", "code": "EE Credit 4", "name": "Efficient Lighting", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+        ]},
+        {"id": "mr", "name": "Materials and Resources", "order": 3, "max_points": {"owner": 16, "tenant": 16}, "criteria": [
+            {"id": "mr-p1", "code": "MR Mandatory 1", "name": "Segregation of Waste", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "mr-1", "code": "MR Credit 1", "name": "Sustainable Building Materials", "mandatory": False, "max_owner": 5, "max_tenant": 5},
+            {"id": "mr-2", "code": "MR Credit 2", "name": "Local Materials", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "mr-3", "code": "MR Credit 3", "name": "Certified Green Products", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "mr-4", "code": "MR Credit 4", "name": "Construction Waste Management", "mandatory": False, "max_owner": 3, "max_tenant": 3},
+        ]},
+        {"id": "rhw", "name": "Resident Health and Well-being", "order": 4, "max_points": {"owner": 12, "tenant": 12}, "criteria": [
+            {"id": "rhw-p1", "code": "RHW Mandatory 1", "name": "Minimum Fresh Air Ventilation", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "rhw-p2", "code": "RHW Mandatory 2", "name": "Tobacco Smoke Control", "mandatory": True, "max_owner": 0, "max_tenant": 0},
+            {"id": "rhw-1", "code": "RHW Credit 1", "name": "Enhanced Ventilation", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "rhw-2", "code": "RHW Credit 2", "name": "Daylighting", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+            {"id": "rhw-3", "code": "RHW Credit 3", "name": "Low-VOC Materials", "mandatory": False, "max_owner": 4, "max_tenant": 4},
+        ]},
+        {"id": "id", "name": "Innovation and Design", "order": 5, "max_points": {"owner": 6, "tenant": 6}, "criteria": [
+            {"id": "id-1", "code": "ID Credit 1", "name": "Innovation in Design", "mandatory": False, "max_owner": 3, "max_tenant": 3},
+            {"id": "id-2", "code": "ID Credit 2", "name": "IGBC Accredited Professional", "mandatory": False, "max_owner": 3, "max_tenant": 3},
+        ]},
+    ],
+}
+
+PROJECT_TYPE_TEMPLATE["Residential"] = RESIDENTIAL_TEMPLATE
+
+CAT_SLUGS = {
+    "Site Selection and Planning": "site-selection",
+    "Water Conservation": "water-conservation",
+    "Energy Efficiency": "energy-efficiency",
+    "Building Materials and Resources": "materials-resources",
+    "Indoor Environmental Quality": "indoor-environmental-quality",
+    "Innovation and Decarbonisation": "innovation-decarbonisation",
+    "Sustainable Design": "sustainable-design",
+    "Materials and Resources": "materials-resources",
+    "Resident Health and Well-being": "health-wellbeing",
+    "Innovation and Design": "innovation-design",
+}
+
+
+def cat_slug(name: str) -> str:
+    return CAT_SLUGS.get(name) or name.lower().replace(" ", "-")
+
+
 def template_for_type(project_type: str):
     return PROJECT_TYPE_TEMPLATE.get(project_type)
 
@@ -137,6 +217,7 @@ def view_template(project_type: str, occupancy: str = "owner") -> dict:
         ]
         cats.append({
             "id": c["id"],
+            "slug": cat_slug(c["name"]),
             "name": c["name"],
             "order": c["order"],
             "max_points": c["max_points"][occ],

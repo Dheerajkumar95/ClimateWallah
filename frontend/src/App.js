@@ -63,10 +63,13 @@ import Register from "@/portal/pages/Register";
 import ClientDashboard from "@/portal/pages/ClientDashboard";
 import MyProjects from "@/portal/pages/MyProjects";
 import CreateProject from "@/portal/pages/CreateProject";
-import ProjectWizard from "@/portal/pages/ProjectWizard";
+import ProjectOverview from "@/portal/pages/ProjectOverview";
+import AssessmentSection from "@/portal/pages/AssessmentSection";
 import ReviewerDashboard from "@/portal/pages/ReviewerDashboard";
 import ReviewerProject from "@/portal/pages/ReviewerProject";
 import { PortalClients, PortalReviewers, PortalProjects } from "@/admin/pages/CertificationPortal";
+import WorkspaceSwitcher from "@/admin/pages/WorkspaceSwitcher";
+import CertDashboard from "@/admin/pages/CertDashboard";
 
 function App() {
   return (
@@ -102,7 +105,7 @@ function App() {
 
             <Route path="/admin/login" element={<Login />} />
             <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route index element={<WorkspaceSwitcher />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="homepage" element={<Homepage />} />
               <Route path="about" element={<AboutAdmin />} />
@@ -115,9 +118,10 @@ function App() {
               <Route path="assessment-questions" element={<AssessmentQuestionsAdmin />} />
               <Route path="assessment-results" element={<AssessmentResults />} />
               <Route path="certification-results" element={<CertificationResults />} />
-              <Route path="portal-clients" element={<PortalClients />} />
-              <Route path="portal-reviewers" element={<PortalReviewers />} />
-              <Route path="portal-projects" element={<PortalProjects />} />
+              <Route path="certification" element={<CertDashboard />} />
+              <Route path="certification/projects" element={<PortalProjects />} />
+              <Route path="certification/clients" element={<PortalClients />} />
+              <Route path="certification/reviewers" element={<PortalReviewers />} />
               <Route path="resources" element={<ResourcesAdmin />} />
               <Route path="partners" element={<PartnersAdmin />} />
               <Route path="events" element={<EventsAdmin />} />
@@ -141,7 +145,8 @@ function App() {
               <Route path="dashboard" element={<ClientDashboard />} />
               <Route path="projects" element={<MyProjects />} />
               <Route path="projects/new" element={<CreateProject />} />
-              <Route path="projects/:id" element={<ProjectWizard />} />
+              <Route path="projects/:id" element={<ProjectOverview />} />
+              <Route path="projects/:id/assessment/:slug" element={<AssessmentSection />} />
             </Route>
             <Route path="/reviewer" element={<PortalProtectedRoute roles={["reviewer"]}><PortalLayout role="reviewer" /></PortalProtectedRoute>}>
               <Route index element={<Navigate to="/reviewer/dashboard" replace />} />

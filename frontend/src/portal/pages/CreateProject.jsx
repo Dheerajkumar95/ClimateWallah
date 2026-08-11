@@ -8,7 +8,7 @@ import { PageHeader, Card, inpCls } from "./ui";
 
 const STEPS = ["Details", "Building Info", "Location", "Settings", "Media", "Team"];
 const PROJECT_TYPES = ["Commercial", "Residential", "Hotel", "Hospital"];
-const CONFIGURED = ["Commercial"];
+const CONFIGURED = ["Commercial", "Residential"];
 
 export default function CreateProject() {
   const navigate = useNavigate();

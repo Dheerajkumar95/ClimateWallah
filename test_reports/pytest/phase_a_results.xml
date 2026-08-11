@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="6" failures="2" skipped="0" tests="8" time="1.004" timestamp="2026-08-11T03:42:49.493437+00:00" hostname="agent-env-ac3c6c9f-eb0c-41db-9cea-22062f301c04"><testcase classname="tests.test_phase_a" name="test_assessment_overview_initial_locking" time="0.272"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_locked_section_returns_403" time="0.000"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_current_section_returns_200" time="0.000"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_save_continue_blocked_missing_mandatory" time="0.000"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_draft_save_does_not_unlock" time="0.000"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_save_continue_unlocks_next" time="0.000"><error message="failed on setup with &quot;AssertionError: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_phase_a.py:46: in residential_project
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="tests.test_phase_a" name="test_admin_dashboard_richer_counts" time="0.269"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_phase_a.py:126: in test_admin_dashboard_richer_counts
+    assert r.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_phase_a" name="test_commercial_slugs_still_work" time="0.002"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_phase_a.py:139: in test_commercial_slugs_still_work
+    assert r.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase></testsuite></testsuites>

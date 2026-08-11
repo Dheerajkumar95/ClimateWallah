@@ -53,6 +53,17 @@ Multi-role portal built ALONGSIDE the existing site/CMS (React + FastAPI + Mongo
 - **New files**: backend `portal.py`, `portal_auth.py`, `rating_template.py` (+ `email_service.send_otp_email`, `auth.create_access_token` role); frontend `src/portal/*`, `src/admin/pages/CertificationPortal.jsx`.
 - Preliminary disclaimer shown throughout: "RES Internal / Preliminary Assessment — not an official IGBC certification."
 
+## Corrections — Phase A (2026-06): Admin split + true sequential assessment
+Verified: testing agent iteration_7 — backend **8/8 pytest** (sequential locking) + prior regressions intact; all frontend Phase-A flows pass.
+- **Two admin workspaces**: `/admin` landing = Workspace Switcher; **Website Management** (existing CMS, `/admin/*`) and **Certification & Project Portal** (`/admin/certification*`) with a context-aware sidebar + "Switch Workspace". Portal admin pages moved to `/admin/certification/{projects,clients,reviewers}`; new **Certification dashboard** at `/admin/certification` (rich counts: clients/reviewers/projects/unassigned/under-review/changes/awaiting-admin/certified). Admin now lands on the switcher after login.
+- **True sequential assessment (backend-enforced)**: each category is a **separate route** `/portal/projects/:id/assessment/:slug`; locked sections return **403**; Save & Continue (signalled via non-empty `completed_categories`) unlocks the next and advances; mandatory items gate progress (400); **auto-save** drafts. New `ProjectOverview` page (score, section stepper complete/current/locked, **progress timeline**, Start/Continue + Submit). Endpoints: `GET/PUT /api/client/projects/{id}/assessment[/{slug}]`.
+- **Residential template** added (Sustainable Design → Water → Energy → Materials → Resident Health & Well-being → Innovation & Design), template-driven; Commercial unchanged. Category **slugs** added to templates.
+- **Progress timeline / audit** appended on create/submit/assign/request-changes/forward/certify. **Turquoise `#27F5C2`** added as accent token.
+
+## Corrections — remaining (Phase B & C) — NOT yet built
+- **Phase B**: richer assign modal (reviewer specialisation/workload/history, reassign/remove) + in-app/email notifications; reviewer category-by-category review with **evidence approve/reject** + per-section request-changes + revisions; admin final-review comparison + return-to-reviewer + versions; move client/reviewer routes to `/portal/client` & `/portal/reviewer` with expanded nav.
+- **Phase C**: full multi-step project form (all Building Info/Address/Privacy/Media/Team fields); **Geo Location** (use-current / pick-on-map via Leaflet+OSM / manual coords with validation + Nominatim reverse-geocode, stored privately); **per-criterion evidence uploads** (disk, client-scoped). Hotel/Hospital templates.
+
 ## Phase 1 remaining / next (portal)
 - Notifications/email on status changes; project status timeline UI; document/evidence upload & versioning; audit log surfacing.
 - Public site: homepage sections below the hero could get the same premium refresh; mobile mega-menu depth.
