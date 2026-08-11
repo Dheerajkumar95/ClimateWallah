@@ -53,6 +53,17 @@ Multi-role portal built ALONGSIDE the existing site/CMS (React + FastAPI + Mongo
 - **New files**: backend `portal.py`, `portal_auth.py`, `rating_template.py` (+ `email_service.send_otp_email`, `auth.create_access_token` role); frontend `src/portal/*`, `src/admin/pages/CertificationPortal.jsx`.
 - Preliminary disclaimer shown throughout: "RES Internal / Preliminary Assessment — not an official IGBC certification."
 
+## Corrections — Phases B & C (2026-06): Evidence, Geo, full form, assignment depth
+Verified: testing agent iteration_8 — backend **36/36 pytest**, all frontend B+C flows pass. Post-test guards added (no evidence upload/review after submit; upload size msg dynamic).
+- **Evidence uploads (disk, client-scoped)**: `POST /api/client/projects/{id}/files` (multipart, scope=evidence, criterion_id) → served at `/api/uploads/evidence/{pid}/{file}`; per-criterion list in the assessment section with pending/approved/rejected badges + delete; **reviewer Approve/Reject** via `POST /api/reviewer/projects/{id}/evidence/{fileId}/review`. Upload only while draft/changes_requested; review only while under review.
+- **Geo Location** (`GeoLocationField`, Leaflet + OSM + Nominatim, no API key): Use-my-location (on click only), Pick-on-map (click/drag pin + search), Manual coords (validated −90..90 / −180..180); reverse-geocode fills city/state/country/postal; stored privately in `location.geo` {lat,lng,accuracy,source,captured_at}.
+- **Full project form**: 6 steps — Details, Building Info (area+units, site, floors, buildings, occupancy counts, construction type, dates, parent dev), Location + Geo, Privacy (confidential flag, owner/dev, org, architect, contact, target rating), Media, Team.
+- **Assignment depth**: reviewer profile (specialisation, supported project_types, max_workload); `GET reviewers` returns active/max/available; assign modal with reviewer cards + workload/type-match, due date, priority, instructions; **assign / reassign / remove** with full `assignment_history`; `POST /api/admin/portal/projects/{id}/unassign`.
+- Residential now a configured template (creatable + assessable). Turquoise accent applied across new components.
+
+## Deferred (noted by review, not yet done)
+- Split `portal.py` (~900 lines) into client/reviewer/admin routers; pagination on admin lists; Nominatim via backend proxy (rate-limit/User-Agent); overloaded-reviewer disable in assign modal; in-app/email notifications on status change; Hotel/Hospital templates.
+
 ## Corrections — Phase A (2026-06): Admin split + true sequential assessment
 Verified: testing agent iteration_7 — backend **8/8 pytest** (sequential locking) + prior regressions intact; all frontend Phase-A flows pass.
 - **Two admin workspaces**: `/admin` landing = Workspace Switcher; **Website Management** (existing CMS, `/admin/*`) and **Certification & Project Portal** (`/admin/certification*`) with a context-aware sidebar + "Switch Workspace". Portal admin pages moved to `/admin/certification/{projects,clients,reviewers}`; new **Certification dashboard** at `/admin/certification` (rich counts: clients/reviewers/projects/unassigned/under-review/changes/awaiting-admin/certified). Admin now lands on the switcher after login.

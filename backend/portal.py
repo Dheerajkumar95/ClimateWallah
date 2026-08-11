@@ -3,12 +3,14 @@ unified login), client projects + sequential IGBC wizard, reviewer assignments,
 and admin portal management. Kept isolated from the existing CMS/public APIs.
 """
 import re
+import os
 import uuid
 import random
 import logging
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, Depends, Request, Response
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Form
 from pydantic import BaseModel, EmailStr, field_validator
 
 from database import db
@@ -34,6 +36,13 @@ OTP_MAX_RESENDS = 5
 OTP_RESEND_COOLDOWN_SEC = 45
 
 PROJECT_TYPES = ["Commercial", "Residential", "Hotel", "Hospital"]
+
+ROOT_DIR = Path(__file__).parent
+BACKEND_URL = os.environ.get("FRONTEND_URL", "")
+EVIDENCE_DIR = ROOT_DIR / "uploads" / "evidence"
+EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+MAX_UPLOAD = int(os.environ.get("UPLOAD_MAX_SIZE_MB", "15")) * 1024 * 1024
+ALLOWED_UPLOAD_EXT = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".png", ".jpg", ".jpeg", ".webp", ".dwg", ".zip"}
 
 
 def _strong(v: str) -> str:
@@ -84,6 +93,7 @@ class CreateProjectInput(BaseModel):
     occupancy_type: str = "owner"
     building_info: dict = {}
     location: dict = {}
+    privacy: dict = {}
     settings: dict = {}
     team: list = []
 
@@ -105,6 +115,10 @@ class CreateReviewerInput(BaseModel):
     name: str
     email: EmailStr
     password: str
+    specialisation: str | None = None
+    project_types: list = []
+    rating_systems: list = []
+    max_workload: int = 5
 
     @field_validator("password")
     @classmethod
@@ -115,6 +129,9 @@ class CreateReviewerInput(BaseModel):
 class AssignInput(BaseModel):
     project_id: str
     reviewer_id: str
+    due_date: str | None = None
+    priority: str = "normal"
+    instructions: str | None = None
 
 
 class RecommendationsInput(BaseModel):
@@ -323,9 +340,11 @@ async def create_client_project(data: CreateProjectInput, user: dict = Depends(c
         "occupancy_type": occ,
         "building_info": data.building_info,
         "location": data.location,
+        "privacy": data.privacy,
         "settings": data.settings,
         "team": data.team,
         "media": [],
+        "evidence": {},
         "rating_system_id": tpl["id"] if tpl else None,
         "under_configuration": tpl is None,
         "status": "draft",
@@ -436,7 +455,8 @@ async def get_assessment_section(project_id: str, slug: str, user: dict = Depend
         raise HTTPException(status_code=403, detail="This section is locked. Complete the previous sections first.")
     c = cats[idx]
     responses = p.get("responses") or {}
-    criteria = [{**cr, "response": responses.get(cr["id"], {})} for cr in c["criteria"]]
+    evidence = p.get("evidence") or {}
+    criteria = [{**cr, "response": responses.get(cr["id"], {}), "evidence": evidence.get(cr["id"], [])} for cr in c["criteria"]]
     return {
         "section": {"id": c["id"], "slug": c["slug"], "name": c["name"], "order": c["order"], "max_points": c["max_points"], "criteria": criteria},
         "prev_slug": cats[idx - 1]["slug"] if idx > 0 else None,
@@ -486,6 +506,91 @@ async def save_assessment_section(project_id: str, slug: str, data: ResponsesInp
     next_slug = cats[idx + 1]["slug"] if (proceed and idx < len(cats) - 1) else None
     merged_p = {**p, **update}
     return {"saved": True, "score": score_project(merged_p), "next_slug": next_slug, "sections": _section_states(merged_p, tpl)}
+
+
+def _save_upload(project_id: str, up: UploadFile, content: bytes) -> dict:
+    ext = os.path.splitext(up.filename or "")[1].lower()
+    if ext not in ALLOWED_UPLOAD_EXT:
+        raise HTTPException(status_code=400, detail=f"File type {ext or '?'} not allowed.")
+    if len(content) > MAX_UPLOAD:
+        raise HTTPException(status_code=400, detail=f"File too large (max {MAX_UPLOAD // (1024*1024)} MB).")
+    proj_dir = EVIDENCE_DIR / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    fid = uuid.uuid4().hex
+    fname = f"{fid}{ext}"
+    (proj_dir / fname).write_bytes(content)
+    return {
+        "id": fid, "filename": fname, "original_name": up.filename,
+        "url": f"{BACKEND_URL}/api/uploads/evidence/{project_id}/{fname}",
+        "size": len(content), "content_type": up.content_type,
+        "uploaded_at": now_iso(), "status": "pending", "review": None,
+    }
+
+
+@portal.post("/client/projects/{project_id}/files")
+async def upload_client_file(project_id: str, file: UploadFile = File(...), scope: str = Form("evidence"),
+                             criterion_id: str = Form(None), user: dict = Depends(current_client_write)):
+    p = await _get_owned_project(project_id, user)
+    if p.get("status") not in ("draft", "changes_requested"):
+        raise HTTPException(status_code=409, detail="Files can only be uploaded while the project is editable.")
+    content = await file.read()
+    rec = _save_upload(project_id, file, content)
+    rec["scope"] = scope
+    if scope == "evidence" and criterion_id:
+        rec["criterion_id"] = criterion_id
+        await db.certification_projects.update_one({"id": project_id}, {"$push": {f"evidence.{criterion_id}": rec}, "$set": {"updated_at": now_iso()}})
+    else:
+        await db.certification_projects.update_one({"id": project_id}, {"$push": {"media": rec}, "$set": {"updated_at": now_iso()}})
+    return rec
+
+
+@portal.delete("/client/projects/{project_id}/files/{file_id}")
+async def delete_client_file(project_id: str, file_id: str, criterion_id: str = None, user: dict = Depends(current_client_write)):
+    p = await _get_owned_project(project_id, user)
+    if criterion_id:
+        arr = (p.get("evidence") or {}).get(criterion_id, [])
+        rec = next((f for f in arr if f["id"] == file_id), None)
+        await db.certification_projects.update_one({"id": project_id}, {"$pull": {f"evidence.{criterion_id}": {"id": file_id}}})
+    else:
+        rec = next((f for f in (p.get("media") or []) if f["id"] == file_id), None)
+        await db.certification_projects.update_one({"id": project_id}, {"$pull": {"media": {"id": file_id}}})
+    if rec:
+        try:
+            (EVIDENCE_DIR / project_id / rec["filename"]).unlink(missing_ok=True)
+        except Exception:
+            pass
+    return {"deleted": True}
+
+
+class EvidenceReviewInput(BaseModel):
+    criterion_id: str
+    status: str  # approved | rejected
+    comment: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def valid(cls, v):
+        if v not in ("approved", "rejected"):
+            raise ValueError("status must be 'approved' or 'rejected'")
+        return v
+
+
+@portal.post("/reviewer/projects/{project_id}/evidence/{file_id}/review")
+async def reviewer_review_evidence(project_id: str, file_id: str, data: EvidenceReviewInput, user: dict = Depends(current_reviewer_write)):
+    p = await db.certification_projects.find_one({"id": project_id, "reviewer_id": user["id"]}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if p.get("status") not in REVIEWER_EDITABLE:
+        raise HTTPException(status_code=409, detail="This project is no longer open for review.")
+    arr = (p.get("evidence") or {}).get(data.criterion_id, [])
+    if not any(f["id"] == file_id for f in arr):
+        raise HTTPException(status_code=404, detail="Evidence file not found")
+    review = {"status": data.status, "comment": data.comment, "by": user.get("name"), "at": now_iso()}
+    await db.certification_projects.update_one(
+        {"id": project_id, f"evidence.{data.criterion_id}.id": file_id},
+        {"$set": {f"evidence.{data.criterion_id}.$.status": data.status, f"evidence.{data.criterion_id}.$.review": review}},
+    )
+    return {"updated": True, "review": review}
 
 
 @portal.put("/client/projects/{project_id}/responses")
@@ -648,7 +753,16 @@ async def admin_portal_clients(user: dict = Depends(current_admin_portal)):
 
 @portal.get("/admin/portal/reviewers")
 async def admin_portal_reviewers(user: dict = Depends(current_admin_portal)):
-    return await db.users.find({"role": "reviewer"}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    rows = await db.users.find({"role": "reviewer"}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    for r in rows:
+        r["active_assignments"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["assigned", "under_review", "changes_requested"]}})
+        r["completed_reviews"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["forwarded", "certified", "rejected"]}})
+        r.setdefault("max_workload", 5)
+        r.setdefault("project_types", [])
+        r.setdefault("rating_systems", [])
+        r.setdefault("specialisation", None)
+        r["available"] = r["active_assignments"] < r.get("max_workload", 5)
+    return rows
 
 
 @portal.post("/admin/portal/reviewers")
@@ -662,6 +776,10 @@ async def admin_create_reviewer(data: CreateReviewerInput, user: dict = Depends(
         "email": email,
         "password_hash": hash_password(data.password),
         "role": "reviewer",
+        "specialisation": (data.specialisation or "").strip() or None,
+        "project_types": data.project_types or [],
+        "rating_systems": data.rating_systems or [],
+        "max_workload": max(1, int(data.max_workload or 5)),
         "active": True,
         "email_verified": True,
         "created_at": now_iso(),
@@ -694,21 +812,49 @@ async def admin_assign_reviewer(data: AssignInput, user: dict = Depends(current_
     reviewer = await db.users.find_one({"id": data.reviewer_id, "role": "reviewer"})
     if not reviewer:
         raise HTTPException(status_code=404, detail="Reviewer not found")
-    if project.get("status") not in ("submitted", "changes_requested"):
-        raise HTTPException(status_code=409, detail="Only submitted projects can be assigned to a reviewer.")
+    if project.get("status") not in ("submitted", "changes_requested", "assigned", "under_review"):
+        raise HTTPException(status_code=409, detail="Only submitted/under-review projects can be assigned.")
+    is_reassign = bool(project.get("reviewer_id")) and project.get("reviewer_id") != data.reviewer_id
+    hist = {
+        "id": str(uuid.uuid4()),
+        "action": "reassigned" if is_reassign else "assigned",
+        "reviewer_id": data.reviewer_id, "reviewer_name": reviewer["name"],
+        "previous_reviewer_id": project.get("reviewer_id"),
+        "due_date": data.due_date, "priority": data.priority, "instructions": data.instructions,
+        "by": user.get("name") or "Admin", "at": now_iso(),
+    }
     await db.certification_projects.update_one(
         {"id": data.project_id},
-        {"$set": {"reviewer_id": data.reviewer_id, "status": "assigned", "updated_at": now_iso()}},
+        {"$set": {"reviewer_id": data.reviewer_id, "status": "assigned",
+                  "assignment": {"due_date": data.due_date, "priority": data.priority, "instructions": data.instructions, "assigned_at": now_iso()},
+                  "updated_at": now_iso()},
+         "$push": {"assignment_history": hist}},
     )
     await db.review_assignments.insert_one({
-        "id": str(uuid.uuid4()),
-        "project_id": data.project_id,
-        "reviewer_id": data.reviewer_id,
-        "assigned_by": user["id"],
-        "assigned_at": now_iso(),
+        "id": hist["id"], "project_id": data.project_id, "reviewer_id": data.reviewer_id,
+        "assigned_by": user["id"], "assigned_at": now_iso(),
     })
-    await _add_timeline(data.project_id, "Reviewer Assigned", project.get("status"), "assigned", user.get("name") or "Admin", note=reviewer.get("name"))
-    return {"assigned": True}
+    await _add_timeline(data.project_id, "Reviewer Reassigned" if is_reassign else "Reviewer Assigned",
+                        project.get("status"), "assigned", user.get("name") or "Admin", note=reviewer.get("name"))
+    return {"assigned": True, "reassigned": is_reassign}
+
+
+@portal.post("/admin/portal/projects/{project_id}/unassign")
+async def admin_unassign_reviewer(project_id: str, user: dict = Depends(current_admin_portal_write)):
+    project = await db.certification_projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.get("reviewer_id"):
+        raise HTTPException(status_code=409, detail="No reviewer assigned.")
+    prev = project.get("reviewer_id")
+    hist = {"id": str(uuid.uuid4()), "action": "removed", "reviewer_id": prev, "by": user.get("name") or "Admin", "at": now_iso()}
+    await db.certification_projects.update_one(
+        {"id": project_id},
+        {"$set": {"reviewer_id": None, "assignment": None, "status": "submitted", "updated_at": now_iso()},
+         "$push": {"assignment_history": hist}},
+    )
+    await _add_timeline(project_id, "Reviewer Removed", project.get("status"), "submitted", user.get("name") or "Admin")
+    return {"unassigned": True}
 
 
 @portal.get("/admin/portal/certification-projects/{project_id}")

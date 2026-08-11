@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Loader2, ShieldCheck, ChevronLeft, Save, Send, MessageSquareWarning } from "lucide-react";
+import { Loader2, ShieldCheck, ChevronLeft, Save, Send, MessageSquareWarning, Paperclip, Check, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { apiError } from "../PortalAuthContext";
@@ -56,6 +56,14 @@ export default function ReviewerProject() {
 
   const setRec = (critId, patch) => setRecs((r) => ({ ...r, [critId]: { ...(r[critId] || {}), ...patch } }));
 
+  const reviewEvidence = async (criterionId, fileId, status) => {
+    try {
+      await api.post(`/reviewer/projects/${id}/evidence/${fileId}/review`, { criterion_id: criterionId, status });
+      toast.success(`Evidence ${status}`);
+      await load();
+    } catch (e) { toast.error(apiError(e.response?.data?.detail)); }
+  };
+
   const saveRecs = async () => {
     setBusy(true);
     try { await api.put(`/reviewer/projects/${id}/recommendations`, { recommendations: recs, reviewer_comment: comment }); toast.success("Recommendation saved"); await load(); }
@@ -104,24 +112,44 @@ export default function ReviewerProject() {
                 </div>
                 {c.criteria.map((cr) => {
                   const claimed = p.responses?.[cr.id] || {};
+                  const files = (p.evidence || {})[cr.id] || [];
                   return (
-                    <div key={cr.id} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center py-1.5" data-testid={`review-crit-${cr.id}`}>
-                      <div>
-                        <div className="text-sm text-charcoal/85">{cr.name}</div>
-                        <div className="text-[11px] text-charcoal/40">{cr.code}{cr.mandatory ? " · mandatory" : ` · max ${cr.max_points}`}</div>
+                    <div key={cr.id} className="py-1.5" data-testid={`review-crit-${cr.id}`}>
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
+                        <div>
+                          <div className="text-sm text-charcoal/85">{cr.name}</div>
+                          <div className="text-[11px] text-charcoal/40">{cr.code}{cr.mandatory ? " · mandatory" : ` · max ${cr.max_points}`}</div>
+                        </div>
+                        <div className="text-right w-20 text-sm text-charcoal/60">{cr.mandatory ? (claimed.met ? "Met" : "—") : (claimed.claimed_points || 0)}</div>
+                        <div className="w-24 flex justify-end">
+                          {cr.mandatory ? (
+                            <input type="checkbox" disabled={!editable} checked={recs[cr.id]?.met === true}
+                              onChange={(e) => setRec(cr.id, { met: e.target.checked })} className="h-4 w-4 accent-natural-green" data-testid={`rec-met-${cr.id}`} />
+                          ) : (
+                            <input type="number" min={0} max={cr.max_points} disabled={!editable}
+                              value={recs[cr.id]?.recommended_points ?? ""}
+                              onChange={(e) => setRec(cr.id, { recommended_points: e.target.value === "" ? "" : Math.max(0, Math.min(cr.max_points, Number(e.target.value))) })}
+                              className="w-20 bg-white border border-border rounded-lg px-2 py-1.5 text-sm text-center outline-none focus:ring-2 focus:ring-turquoise" data-testid={`rec-points-${cr.id}`} />
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right w-20 text-sm text-charcoal/60">{cr.mandatory ? (claimed.met ? "Met" : "—") : (claimed.claimed_points || 0)}</div>
-                      <div className="w-24 flex justify-end">
-                        {cr.mandatory ? (
-                          <input type="checkbox" disabled={!editable} checked={recs[cr.id]?.met === true}
-                            onChange={(e) => setRec(cr.id, { met: e.target.checked })} className="h-4 w-4 accent-natural-green" data-testid={`rec-met-${cr.id}`} />
-                        ) : (
-                          <input type="number" min={0} max={cr.max_points} disabled={!editable}
-                            value={recs[cr.id]?.recommended_points ?? ""}
-                            onChange={(e) => setRec(cr.id, { recommended_points: e.target.value === "" ? "" : Math.max(0, Math.min(cr.max_points, Number(e.target.value))) })}
-                            className="w-20 bg-white border border-border rounded-lg px-2 py-1.5 text-sm text-center outline-none focus:ring-2 focus:ring-natural-green" data-testid={`rec-points-${cr.id}`} />
-                        )}
-                      </div>
+                      {files.length > 0 && (
+                        <ul className="mt-1.5 space-y-1 pl-1" data-testid={`review-evidence-${cr.id}`}>
+                          {files.map((f) => (
+                            <li key={f.id} className="flex items-center gap-2 text-xs bg-off-white border border-border rounded-lg px-2.5 py-1.5">
+                              <Paperclip className="h-3.5 w-3.5 text-charcoal/40 shrink-0" />
+                              <a href={f.url} target="_blank" rel="noreferrer" className="truncate text-charcoal/80 hover:underline flex-1">{f.original_name}</a>
+                              <span className={`capitalize ${f.status === "approved" ? "text-natural-green" : f.status === "rejected" ? "text-red-500" : "text-amber-600"}`}>{f.status}</span>
+                              {editable && (
+                                <span className="flex items-center gap-1 shrink-0">
+                                  <button onClick={() => reviewEvidence(cr.id, f.id, "approved")} data-testid={`ev-approve-${f.id}`} className="p-1 rounded hover:bg-natural-green/10 text-natural-green"><Check className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => reviewEvidence(cr.id, f.id, "rejected")} data-testid={`ev-reject-${f.id}`} className="p-1 rounded hover:bg-red-50 text-red-500"><XIcon className="h-3.5 w-3.5" /></button>
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   );
                 })}

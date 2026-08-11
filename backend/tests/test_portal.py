@@ -230,11 +230,11 @@ class TestClientProjects:
         assert d["version"] >= 1
         assert "score" in d
 
-    def test_residential_under_configuration(self, client_sess):
+    def test_hotel_under_configuration(self, client_sess):
         s, _ = client_sess
         r = s.post(f"{API}/client/projects", json={
-            "name": f"TEST Residential {uuid.uuid4().hex[:6]}",
-            "project_type": "Residential",
+            "name": f"TEST Hotel {uuid.uuid4().hex[:6]}",
+            "project_type": "Hotel",
         })
         assert r.status_code == 200
         proj = r.json()

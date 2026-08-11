@@ -5,12 +5,14 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { apiError } from "../PortalAuthContext";
 import { Card, StatusBadge, BandBadge, ProgressBar, inpCls } from "./ui";
+import { EvidenceUploader } from "./EvidenceUploader";
 
 export default function AssessmentSection() {
   const { id, slug } = useParams();
   const navigate = useNavigate();
   const [d, setD] = useState(null);
   const [responses, setResponses] = useState({});
+  const [evidence, setEvidence] = useState({});
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [busy, setBusy] = useState(false);
   const debounceRef = useRef(null);
@@ -21,8 +23,10 @@ export default function AssessmentSection() {
       const { data } = await api.get(`/client/projects/${id}/assessment/${slug}`);
       setD(data);
       const seed = {};
-      data.section.criteria.forEach((cr) => { seed[cr.id] = { ...(cr.response || {}) }; });
+      const ev = {};
+      data.section.criteria.forEach((cr) => { seed[cr.id] = { ...(cr.response || {}) }; ev[cr.id] = cr.evidence || []; });
       setResponses(seed);
+      setEvidence(ev);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       const code = e.response?.status;
@@ -139,12 +143,15 @@ export default function AssessmentSection() {
               <div className="text-xs font-semibold tracking-wide uppercase text-charcoal/45 mb-2">Mandatory requirements</div>
               <div className="space-y-3">
                 {mandatory.map((cr) => (
-                  <div key={cr.id} className="rounded-xl border border-border p-4 flex items-start justify-between gap-4" data-testid={`criterion-${cr.id}`}>
-                    <div><div className="text-sm font-medium text-charcoal">{cr.name}</div><div className="text-xs text-charcoal/45 mt-0.5">{cr.code} · prerequisite</div></div>
-                    <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-                      <input type="checkbox" disabled={!editable} checked={responses[cr.id]?.met === true} onChange={(e) => setCriterion(cr.id, { met: e.target.checked })} className="h-4 w-4 accent-natural-green" data-testid={`met-${cr.id}`} />
-                      <span className="text-sm text-charcoal/70">Met</span>
-                    </label>
+                  <div key={cr.id} className="rounded-xl border border-border p-4" data-testid={`criterion-${cr.id}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div><div className="text-sm font-medium text-charcoal">{cr.name}</div><div className="text-xs text-charcoal/45 mt-0.5">{cr.code} · prerequisite</div></div>
+                      <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+                        <input type="checkbox" disabled={!editable} checked={responses[cr.id]?.met === true} onChange={(e) => setCriterion(cr.id, { met: e.target.checked })} className="h-4 w-4 accent-natural-green" data-testid={`met-${cr.id}`} />
+                        <span className="text-sm text-charcoal/70">Met</span>
+                      </label>
+                    </div>
+                    <EvidenceUploader projectId={id} criterionId={cr.id} files={evidence[cr.id]} editable={editable} onChange={(fs) => setEvidence((e) => ({ ...e, [cr.id]: fs }))} />
                   </div>
                 ))}
               </div>
@@ -164,6 +171,7 @@ export default function AssessmentSection() {
                 </div>
                 <input className={inpCls + " mt-3 text-xs"} placeholder="Notes / evidence reference (optional)" disabled={!editable}
                   value={responses[cr.id]?.notes ?? ""} onChange={(e) => setCriterion(cr.id, { notes: e.target.value })} />
+                <EvidenceUploader projectId={id} criterionId={cr.id} files={evidence[cr.id]} editable={editable} onChange={(fs) => setEvidence((e) => ({ ...e, [cr.id]: fs }))} />
               </div>
             ))}
           </div>
