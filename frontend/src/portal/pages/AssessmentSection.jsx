@@ -637,10 +637,6 @@ export default function AssessmentSection() {
                             className="h-4 w-4 accent-[#27F580]"
                             data-testid={`met-${criterion.id}`}
                           />
-
-                          <span className="text-sm font-medium text-[#172033]">
-                            Met
-                          </span>
                         </label>
                       </div>
 
