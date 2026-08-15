@@ -126,6 +126,14 @@ class CreateReviewerInput(BaseModel):
     def strong(cls, v):
         return _strong(v)
 
+class ReviewerPasswordInput(BaseModel):
+    new_password: str
+    confirm_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def strong(cls, value):
+        return _strong(value)
 
 class AssignInput(BaseModel):
     project_id: str
@@ -179,36 +187,68 @@ def _issue_session(response: Response, sub: str, role: str):
     csrf = new_csrf_token()
     set_auth_cookies(response, token, csrf)
 
-
 # ---------------- Auth: client registration (OTP) ----------------
-@portal.post("/auth/client/register")
+
+@portal.post("/auth/client/register", status_code=202)
 async def client_register(data: RegisterInput):
-    email = data.email.lower()
+    email = data.email.strip().lower()
+
     if await _email_taken(email):
-        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+        raise HTTPException(
+            status_code=409,
+            detail="An account with this email already exists.",
+        )
+
     otp = _gen_otp()
+
     await db.pending_registrations.update_one(
         {"email": email},
-        {"$set": {
-            "email": email,
-            "name": data.name.strip(),
-            "phone": (data.phone or "").strip() or None,
-            "organization": (data.organization or "").strip() or None,
-            "password_hash": hash_password(data.password),
-            "otp_hash": hash_password(otp),
-            "expires_at": (_now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(),
-            "attempts": 0,
-            "resend_count": 0,
-            "last_sent": _now().isoformat(),
-            "created_at": now_iso(),
-        }},
+        {
+            "$set": {
+                "email": email,
+                "name": data.name.strip(),
+                "phone": (data.phone or "").strip() or None,
+                "organization": (
+                    data.organization or ""
+                ).strip() or None,
+                "password_hash": hash_password(data.password),
+                "otp_hash": hash_password(otp),
+                "expires_at": (
+                    _now() + timedelta(minutes=OTP_TTL_MIN)
+                ).isoformat(),
+                "attempts": 0,
+                "resend_count": 0,
+                "last_sent": _now().isoformat(),
+                "created_at": now_iso(),
+            }
+        },
         upsert=True,
     )
-    sent = await send_otp_email(email, data.name, otp)
-    resp = {"message": "Verification code sent to your email.", "email": email, "expires_in_minutes": OTP_TTL_MIN}
+
+    sent = await send_otp_email(
+        to_email=email,
+        name=data.name,
+        otp=otp,
+    )
+
     if not sent:
-        logger.warning(f"OTP for {email} could not be emailed; delivery disabled.")
-    return resp
+        await db.pending_registrations.delete_one(
+            {"email": email}
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Unable to send verification email. "
+                "Please try again."
+            ),
+        )
+
+    return {
+        "message": "Verification code sent to your email.",
+        "email": email,
+        "expires_in_minutes": OTP_TTL_MIN,
+    }
 
 
 @portal.post("/auth/client/verify-otp")
@@ -521,7 +561,7 @@ async def _save_upload(project_id: str, up: UploadFile, content: bytes) -> dict:
                              up.content_type or "application/octet-stream", original_name=up.filename)
     return {
         "id": fid, "filename": fname, "original_name": up.filename,
-        "url": f"{BACKEND_URL}/api/uploads/evidence/{project_id}/{fname}",
+        "url": f"/api/uploads/evidence/{project_id}/{fname}",
         "size": len(content), "content_type": up.content_type,
         "uploaded_at": now_iso(), "status": "pending", "review": None,
     }
@@ -749,10 +789,65 @@ async def admin_portal_clients(user: dict = Depends(current_admin_portal)):
         d["project_count"] = await db.certification_projects.count_documents({"client_id": d["id"]})
     return docs
 
+@portal.get("/admin/portal/clients/{client_id}")
+async def admin_portal_client_detail(
+    client_id: str,
+    user: dict = Depends(current_admin_portal),
+):
+    client = await db.users.find_one(
+        {"id": client_id, "role": "client"},
+        {"_id": 0, "password_hash": 0},
+    )
+
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    projects = await db.certification_projects.find(
+        {"client_id": client_id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(500)
+
+    project_rows = []
+
+    for project in projects:
+        row = _project_summary(project)
+
+        if project.get("reviewer_id"):
+            reviewer = await db.users.find_one(
+                {"id": project["reviewer_id"]},
+                {"_id": 0, "name": 1, "email": 1},
+            )
+            row["reviewer"] = reviewer or None
+        else:
+            row["reviewer"] = None
+
+        project_rows.append(row)
+
+    client["projects"] = project_rows
+    client["project_count"] = len(project_rows)
+
+    client["status_counts"] = {
+        status: sum(
+            1 for project in project_rows
+            if project.get("status") == status
+        )
+        for status in (
+            "draft",
+            "submitted",
+            "assigned",
+            "under_review",
+            "changes_requested",
+            "forwarded",
+            "certified",
+            "rejected",
+        )
+    }
+
+    return client
 
 @portal.get("/admin/portal/reviewers")
 async def admin_portal_reviewers(user: dict = Depends(current_admin_portal)):
-    rows = await db.users.find({"role": "reviewer"}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    rows = await db.users.find({"role": "reviewer", "active": {"$ne": False}}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
     for r in rows:
         r["active_assignments"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["assigned", "under_review", "changes_requested"]}})
         r["completed_reviews"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["forwarded", "certified", "rejected"]}})
@@ -763,6 +858,150 @@ async def admin_portal_reviewers(user: dict = Depends(current_admin_portal)):
         r["available"] = r["active_assignments"] < r.get("max_workload", 5)
     return rows
 
+@portal.get("/admin/portal/reviewers/{reviewer_id}")
+async def admin_portal_reviewer_detail(
+    reviewer_id: str,
+    user: dict = Depends(current_admin_portal),
+):
+    reviewer = await db.users.find_one(
+        {"id": reviewer_id, "role": "reviewer"},
+        {"_id": 0, "password_hash": 0},
+    )
+
+    if not reviewer:
+        raise HTTPException(status_code=404, detail="Reviewer not found")
+
+    projects = await db.certification_projects.find(
+        {"reviewer_id": reviewer_id},
+        {"_id": 0},
+    ).sort("updated_at", -1).to_list(500)
+
+    project_rows = []
+
+    for project in projects:
+        row = _project_summary(project)
+
+        client = await db.users.find_one(
+            {"id": project.get("client_id")},
+            {"_id": 0, "name": 1, "email": 1},
+        )
+
+        row["client"] = client or None
+        project_rows.append(row)
+
+    reviewer["projects"] = project_rows
+
+    reviewer["active_assignments"] = sum(
+        1 for project in project_rows
+        if project.get("status") in (
+            "assigned",
+            "under_review",
+            "changes_requested",
+        )
+    )
+
+    reviewer["completed_reviews"] = sum(
+        1 for project in project_rows
+        if project.get("status") in (
+            "forwarded",
+            "certified",
+            "rejected",
+        )
+    )
+
+    return reviewer
+
+
+@portal.patch("/admin/portal/reviewers/{reviewer_id}/password")
+async def admin_reset_reviewer_password(
+    reviewer_id: str,
+    data: ReviewerPasswordInput,
+    user: dict = Depends(current_admin_portal_write),
+):
+    if data.new_password != data.confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Passwords do not match.",
+        )
+
+    reviewer = await db.users.find_one({
+        "id": reviewer_id,
+        "role": "reviewer",
+    })
+
+    if not reviewer or not reviewer.get("active", True):
+        raise HTTPException(
+            status_code=404,
+            detail="Active reviewer not found",
+        )
+
+    await db.users.update_one(
+        {"id": reviewer_id},
+        {
+            "$set": {
+                "password_hash": hash_password(data.new_password),
+                "password_updated_at": now_iso(),
+                "updated_at": now_iso(),
+            }
+        },
+    )
+
+    return {
+        "message": "Reviewer password updated successfully."
+    }
+
+
+@portal.delete("/admin/portal/reviewers/{reviewer_id}")
+async def admin_delete_reviewer(
+    reviewer_id: str,
+    user: dict = Depends(current_admin_portal_write),
+):
+    reviewer = await db.users.find_one({
+        "id": reviewer_id,
+        "role": "reviewer",
+    })
+
+    if not reviewer or not reviewer.get("active", True):
+        raise HTTPException(
+            status_code=404,
+            detail="Active reviewer not found",
+        )
+
+    active_assignments = await db.certification_projects.count_documents({
+        "reviewer_id": reviewer_id,
+        "status": {
+            "$in": [
+                "assigned",
+                "under_review",
+                "changes_requested",
+            ]
+        },
+    })
+
+    if active_assignments:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This reviewer has {active_assignments} active "
+                "assignment(s). Reassign or remove them before deleting."
+            ),
+        )
+
+    await db.users.update_one(
+        {"id": reviewer_id},
+        {
+            "$set": {
+                "active": False,
+                "deleted_at": now_iso(),
+                "deleted_by": user.get("id"),
+                "updated_at": now_iso(),
+            }
+        },
+    )
+
+    return {
+        "message": "Reviewer deleted successfully."
+    }
 
 @portal.post("/admin/portal/reviewers")
 async def admin_create_reviewer(data: CreateReviewerInput, user: dict = Depends(current_admin_portal_write)):

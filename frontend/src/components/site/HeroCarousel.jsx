@@ -13,7 +13,7 @@ const SLIDES = [
     subtitle: "Discover India's marketplace for vetted green vendors and sustainable building products — in one click.",
     cta: "Explore Marketplace",
     to: "/resources",
-    image: `${IMG}/a9460f36d23503dd5e354bafc9b71ff24064630f46723dd4b58981b768d4a44b.jpeg`,
+    image: `./images/img.png`,
   },
   {
     kicker: "IGBC Readiness",
@@ -22,7 +22,7 @@ const SLIDES = [
     subtitle: "Instantly benchmark, see your score, and get precise interventions to close the IGBC gap.",
     cta: "Try the Pre-Qualifier",
     to: "/certification-finder",
-    image: `${IMG}/c20191567fd0be4da2cfeec26034399f1b45ef4ef142d411cbe387400b93b81f.jpeg`,
+    image: `./images/img1.png`,
   },
   {
     kicker: "Sustainability Platform",
@@ -31,7 +31,7 @@ const SLIDES = [
     subtitle: "Take the right first step with India's automated sustainability platform, built by Resilient Earth Solutions.",
     cta: "Book a Demo",
     to: "/book",
-    image: `${IMG}/ceacacbe76d2b88f7049ca6302eb7478a1a8e8451888254e3292af745eb1cb7b.jpeg`,
+    image: `./images/img3.png`,
   },
 ];
 
@@ -98,14 +98,8 @@ export function HeroCarousel() {
         </AnimatePresence>
 
         {/* Arrows */}
-        <button onClick={() => go(i - 1)} aria-label="Previous slide" data-testid="hero-prev"
-          className="hidden lg:flex absolute left-3 top-1/2 -translate-y-1/2 h-11 w-11 items-center justify-center rounded-full bg-white border border-border text-charcoal/60 hover:text-natural-green hover:border-natural-green/40 transition-colors">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button onClick={() => go(i + 1)} aria-label="Next slide" data-testid="hero-next"
-          className="hidden lg:flex absolute right-3 top-1/2 -translate-y-1/2 h-11 w-11 items-center justify-center rounded-full bg-white border border-border text-charcoal/60 hover:text-natural-green hover:border-natural-green/40 transition-colors">
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        
+
       </div>
 
       {/* Dots */}

@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Loader2, ShieldCheck, ChevronLeft, Save, Send, MessageSquareWarning, Paperclip, Check, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, resolveUploadUrl } from "@/lib/api";
 import { apiError } from "../PortalAuthContext";
 import { PageHeader, Card, StatusBadge, BandBadge, ProgressBar, inpCls } from "./ui";
-
 const EDITABLE = ["assigned", "submitted", "under_review"];
 
 function bandFor(total, thresholds) {
@@ -138,7 +137,7 @@ export default function ReviewerProject() {
                           {files.map((f) => (
                             <li key={f.id} className="flex items-center gap-2 text-xs bg-off-white border border-border rounded-lg px-2.5 py-1.5">
                               <Paperclip className="h-3.5 w-3.5 text-charcoal/40 shrink-0" />
-                              <a href={f.url} target="_blank" rel="noreferrer" className="truncate text-charcoal/80 hover:underline flex-1">{f.original_name}</a>
+                              <a href={resolveUploadUrl(f.url)} target="_blank" rel="noreferrer" className="truncate text-charcoal/80 hover:underline flex-1">{f.original_name}</a>
                               <span className={`capitalize ${f.status === "approved" ? "text-natural-green" : f.status === "rejected" ? "text-red-500" : "text-amber-600"}`}>{f.status}</span>
                               {editable && (
                                 <span className="flex items-center gap-1 shrink-0">
