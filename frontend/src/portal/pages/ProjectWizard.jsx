@@ -272,9 +272,9 @@ export default function ProjectWizard() {
                   <button onClick={saveProgress} disabled={saving} data-testid="wizard-save-btn" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm text-charcoal/80 hover:bg-warm-beige transition-colors">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save</button>
                 </div>
                 {active < template.categories.length - 1 ? (
-                  <button onClick={saveAndContinue} disabled={saving} data-testid="wizard-continue-btn" className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors disabled:opacity-60">Save & Continue <ChevronRight className="h-4 w-4" /></button>
+                  <button onClick={saveAndContinue} disabled={saving} data-testid="wizard-continue-btn" className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-60">Save & Continue <ChevronRight className="h-4 w-4" /></button>
                 ) : (
-                  <button onClick={submit} disabled={submitting || !allComplete} data-testid="wizard-submit-btn" title={!allComplete ? "Complete all mandatory items in every section" : ""} className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors disabled:opacity-50">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review</button>
+                  <button onClick={submit} disabled={submitting || !allComplete} data-testid="wizard-submit-btn" title={!allComplete ? "Complete all mandatory items in every section" : ""} className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-50">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review</button>
                 )}
               </div>
             )}

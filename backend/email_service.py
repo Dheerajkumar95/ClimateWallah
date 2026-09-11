@@ -166,6 +166,7 @@ def send_email_sync(
     subject: str,
     plain_body: str,
     html_body: str,
+    attachments: list[dict] | None = None,
 ) -> None:
     if SMTP_USE_TLS and SMTP_USE_SSL:
         raise RuntimeError(
@@ -184,6 +185,16 @@ def send_email_sync(
 
     message.set_content(plain_body)
     message.add_alternative(html_body, subtype="html")
+    for attachment in attachments or []:
+        content = attachment.get("content")
+        if not content:
+            continue
+        mime = attachment.get("content_type") or "application/octet-stream"
+        maintype, _, subtype = mime.partition("/")
+        message.add_attachment(
+            content, maintype=maintype or "application", subtype=subtype or "octet-stream",
+            filename=attachment.get("filename") or "attachment",
+        )
 
     ssl_context = ssl.create_default_context()
 
@@ -218,6 +229,7 @@ async def send_email(
     subject: str,
     plain_body: str,
     html_body: str,
+    attachments: list[dict] | None = None,
 ) -> bool:
     missing = missing_email_settings()
 
@@ -235,6 +247,7 @@ async def send_email(
             subject,
             plain_body,
             html_body,
+            attachments,
         )
         logger.info("Email sent successfully.")
         return True

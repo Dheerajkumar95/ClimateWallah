@@ -1,7 +1,14 @@
 import axios from "axios";
 
+const runtimeDefault =
+  typeof window !== "undefined"
+    ? (!["localhost", "127.0.0.1"].includes(window.location.hostname)
+        ? window.location.origin
+        : `${window.location.protocol}//${window.location.hostname}:8000`)
+    : "http://127.0.0.1:8000";
+
 export const BACKEND = (
-  process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"
+  process.env.REACT_APP_BACKEND_URL || runtimeDefault
 ).replace(/\/+$/, "");
 
 export const API = `${BACKEND}/api`;

@@ -1,0 +1,20 @@
+[Unit]
+Description=ClimateWallah FastAPI Backend
+After=network.target mongod.service
+Wants=mongod.service
+
+[Service]
+Type=simple
+User=climatewallah
+Group=climatewallah
+WorkingDirectory=/var/www/climatewallah/backend
+EnvironmentFile=/var/www/climatewallah/backend/.env
+ExecStart=/var/www/climatewallah/backend/venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

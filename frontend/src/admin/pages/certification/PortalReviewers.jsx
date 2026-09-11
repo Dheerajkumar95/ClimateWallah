@@ -67,20 +67,20 @@ export default function PortalReviewers() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="mb-1 text-2xl font-serif text-[#172033]">Portal Reviewers</h1>
-          <p className="text-sm text-[#667085]">Reviewer accounts are created here — there is no public signup.</p>
+          <p className="text-sm text-[#667085]">Manage admin-created reviewers and approved professional partners.</p>
         </div>
         <Btn onClick={() => setCreateOpen(true)} data-testid="add-reviewer-btn">
           <UserPlus className="h-4 w-4" /> Add Reviewer
         </Btn>
       </div>
 
-      <Table head={["Name", "Email", "Specialisation", "Types", "Workload", "Completed", "Actions"]} testid="reviewers-table">
+      <Table head={["Name", "Email", "Specialisation", "Plan / eligibility", "Workload", "Completed", "Actions"]} testid="reviewers-table">
         {rows.length === 0 ? <Empty text="No reviewers yet." /> : rows.map((reviewer) => (
           <tr key={reviewer.id} data-testid={`reviewer-row-${reviewer.id}`}>
             <td className="px-4 py-3 font-medium text-[#172033]">{reviewer.name}</td>
             <td className="px-4 py-3 text-[#667085]">{reviewer.email}</td>
             <td className="px-4 py-3 text-[#667085]">{reviewer.specialisation || "—"}</td>
-            <td className="px-4 py-3 text-xs text-[#667085]">{(reviewer.project_types || []).join(", ") || "All"}</td>
+            <td className="px-4 py-3 text-xs"><div className={`font-semibold capitalize ${reviewer.eligible ? "text-[#172033]" : "text-amber-700"}`}>{reviewer.subscription_state?.status?.replace(/_/g, " ") || "active"}</div><div className="mt-0.5 max-w-[190px] text-[#667085]">{reviewer.eligible ? (reviewer.project_types || []).join(", ") || "All types" : reviewer.eligibility_reason}</div></td>
             <td className="px-4 py-3">
               <span className={reviewer.available ? "text-[#172033]" : "text-amber-600"}>
                 {reviewer.active_assignments}/{reviewer.max_workload}

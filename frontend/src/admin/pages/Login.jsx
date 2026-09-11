@@ -57,7 +57,7 @@ export default function Login() {
             </div>
             {error && <div data-testid="login-error" className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</div>}
             <button type="submit" data-testid="login-submit" disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white py-3 font-medium hover:bg-natural-green transition-colors disabled:opacity-60">
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white py-3 font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-60">
               {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</> : "Sign in"}
             </button>
           </form>

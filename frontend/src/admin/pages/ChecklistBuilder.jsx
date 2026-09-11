@@ -42,6 +42,8 @@ function IconButton({ title, danger = false, children, ...props }) {
 }
 
 export default function ChecklistBuilder() {
+  const [certificationCode, setCertificationCode] = useState("IGBC");
+  const [certificationTypes, setCertificationTypes] = useState([]);
   const [projectType, setProjectType] = useState("Residential");
   const [template, setTemplate] = useState(null);
   const [status, setStatus] = useState("not_configured");
@@ -52,7 +54,7 @@ export default function ChecklistBuilder() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/admin/portal/checklists/${projectType}`);
+      const { data } = await api.get(`/admin/portal/checklists/${certificationCode}/${projectType}`);
       setTemplate(data.template);
       setStatus(data.status);
       setSelectedId(data.template?.categories?.[0]?.id || null);
@@ -62,7 +64,13 @@ export default function ChecklistBuilder() {
     } finally {
       setLoading(false);
     }
-  }, [projectType]);
+  }, [certificationCode, projectType]);
+
+  useEffect(() => {
+    api.get("/admin/portal/certification-types")
+      .then(({ data }) => setCertificationTypes(data || []))
+      .catch(() => setCertificationTypes([]));
+  }, []);
 
   useEffect(() => {
     load();
@@ -101,6 +109,7 @@ export default function ChecklistBuilder() {
       name: "New Category",
       order: categories.length,
       max_points: { owner: 0, tenant: 0 },
+      active: true,
       criteria: [],
     };
     replaceCategories([...categories, next]);
@@ -178,7 +187,7 @@ export default function ChecklistBuilder() {
     if (!template) return false;
     setSaving(true);
     try {
-      const { data } = await api.put(`/admin/portal/checklists/${projectType}`, { template });
+      const { data } = await api.put(`/admin/portal/checklists/${certificationCode}/${projectType}`, { template });
       setTemplate(data.template);
       setStatus("draft");
       if (!quiet) toast.success("Checklist draft saved");
@@ -196,7 +205,7 @@ export default function ChecklistBuilder() {
     if (!saved) return;
     setSaving(true);
     try {
-      const { data } = await api.post(`/admin/portal/checklists/${projectType}/publish`);
+      const { data } = await api.post(`/admin/portal/checklists/${certificationCode}/${projectType}/publish`);
       setTemplate(data.template);
       setStatus("published");
       toast.success(data.message);
@@ -245,7 +254,16 @@ export default function ChecklistBuilder() {
       </div>
 
       <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <Field label="Certification type">
+            <select
+              value={certificationCode}
+              onChange={(event) => setCertificationCode(event.target.value)}
+              className="w-full rounded-lg border border-[#E4E7EC] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none focus:ring-2 focus:ring-[#27F580]"
+            >
+              {(certificationTypes.length ? certificationTypes : [{ code: "IGBC", name: "IGBC" }]).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
+            </select>
+          </Field>
           <Field label="Project type">
             <select
               value={projectType}
@@ -320,6 +338,9 @@ export default function ChecklistBuilder() {
                   <Field label="Owner maximum points"><TextInput type="number" min="0" value={selected.max_points?.owner} onChange={(value) => updateCategory({ max_points: { ...(selected.max_points || {}), owner: Number(value || 0) } })} /></Field>
                   <Field label="Tenant maximum points"><TextInput type="number" min="0" value={selected.max_points?.tenant} onChange={(value) => updateCategory({ max_points: { ...(selected.max_points || {}), tenant: Number(value || 0) } })} /></Field>
                 </div>
+                <label className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#E4E7EC] bg-[#F6F8FA] px-3 py-2.5 text-sm text-[#172033]">
+                  <input type="checkbox" checked={selected.active !== false} onChange={(event) => updateCategory({ active: event.target.checked })} className="h-4 w-4 accent-[#27F580]" /> Section active
+                </label>
               </section>
 
               <CriteriaSection
@@ -384,9 +405,14 @@ function CriteriaSection({ title, items, mandatory = false, onAdd, onChange, onD
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
               <Field label="Description / client guidance"><TextInput value={item.description} onChange={(description) => onChange(item.id, { description })} /></Field>
-              <label className="flex items-center gap-2 rounded-lg border border-[#E4E7EC] bg-white px-3 py-2.5 text-sm text-[#172033]">
-                <input type="checkbox" checked={item.evidence_required !== false} onChange={(event) => onChange(item.id, { evidence_required: event.target.checked })} className="h-4 w-4 accent-[#27F580]" /> Evidence required
-              </label>
+              <div className="flex flex-wrap gap-2">
+                <label className="flex items-center gap-2 rounded-lg border border-[#E4E7EC] bg-white px-3 py-2.5 text-sm text-[#172033]">
+                  <input type="checkbox" checked={item.evidence_required !== false} onChange={(event) => onChange(item.id, { evidence_required: event.target.checked })} className="h-4 w-4 accent-[#27F580]" /> Evidence required
+                </label>
+                <label className="flex items-center gap-2 rounded-lg border border-[#E4E7EC] bg-white px-3 py-2.5 text-sm text-[#172033]">
+                  <input type="checkbox" checked={item.active !== false} onChange={(event) => onChange(item.id, { active: event.target.checked })} className="h-4 w-4 accent-[#27F580]" /> Active
+                </label>
+              </div>
             </div>
           </article>
         ))}

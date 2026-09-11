@@ -6,7 +6,7 @@ import { toast } from "sonner";
 export function Btn({ children, variant = "primary", className = "", ...props }) {
   const base = "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60";
   const styles = {
-    primary: "bg-deep-forest-green text-off-white hover:bg-natural-green",
+    primary: "bg-deep-forest-green text-off-white hover:bg-[#20DB72]",
     outline: "border border-border bg-white text-charcoal hover:bg-warm-beige",
     danger: "bg-destructive text-white hover:opacity-90",
     ghost: "text-charcoal/70 hover:bg-warm-beige",

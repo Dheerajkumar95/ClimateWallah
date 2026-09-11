@@ -106,7 +106,7 @@ export function GeoLocationField({ value, onChange, onResolveAddress }) {
 
       {mode === "current" && (
         <button type="button" onClick={useCurrent} disabled={loading} data-testid="geo-use-current"
-          className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors">
+          className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Detect my current location
         </button>
       )}

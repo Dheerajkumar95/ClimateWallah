@@ -65,6 +65,7 @@ import { PortalAuthProvider } from "@/portal/PortalAuthContext";
 import { PortalProtectedRoute } from "@/portal/PortalProtectedRoute";
 import { PortalLayout } from "@/portal/PortalLayout";
 import PortalLogin from "@/portal/pages/PortalLogin";
+import ForgotPassword from "@/portal/pages/ForgotPassword";
 import Register from "@/portal/pages/Register";
 import ClientDashboard from "@/portal/pages/ClientDashboard";
 import MyProjects from "@/portal/pages/MyProjects";
@@ -73,12 +74,20 @@ import ProjectOverview from "@/portal/pages/ProjectOverview";
 import AssessmentSection from "@/portal/pages/AssessmentSection";
 import ReviewerDashboard from "@/portal/pages/ReviewerDashboard";
 import ReviewerProject from "@/portal/pages/ReviewerProject";
+import ReviewerRegister from "@/portal/pages/ReviewerRegister";
+import ReviewerAccount from "@/portal/pages/ReviewerAccount";
+import Invoices from "@/portal/pages/Invoices";
+import CertificationTypeSelection from "@/portal/pages/CertificationTypeSelection";
 import PortalProjects from "@/admin/pages/certification/PortalProjects";
 import PortalClients from "@/admin/pages/certification/PortalClients";
 import PortalReviewers from "@/admin/pages/certification/PortalReviewers";
 import WorkspaceSwitcher from "@/admin/pages/WorkspaceSwitcher";
 import CertDashboard from "@/admin/pages/CertDashboard";
 import ChecklistBuilder from "@/admin/pages/ChecklistBuilder";
+import CertificationTypes from "@/admin/pages/CertificationTypes";
+import ReviewerApplications from "@/admin/pages/ReviewerApplications";
+import BillingPayouts from "@/admin/pages/BillingPayouts";
+import AuditLogs from "@/admin/pages/AuditLogs";
 
 function App() {
   return (
@@ -170,6 +179,10 @@ function App() {
                   path="certification/checklists"
                   element={<ChecklistBuilder />}
                 />
+                <Route path="certification/types" element={<CertificationTypes />} />
+                <Route path="certification/reviewer-applications" element={<ReviewerApplications />} />
+                <Route path="certification/billing" element={<BillingPayouts />} />
+                <Route path="certification/audit" element={<AuditLogs />} />
                 <Route path="resources" element={<ResourcesAdmin />} />
                 <Route path="partners" element={<PartnersAdmin />} />
                 <Route path="events" element={<EventsAdmin />} />
@@ -187,7 +200,9 @@ function App() {
 
               {/* ---------- Certification Portal (Client / Reviewer) ---------- */}
               <Route path="/portal/login" element={<PortalLogin />} />
+              <Route path="/portal/forgot-password" element={<ForgotPassword />} />
               <Route path="/portal/register" element={<Register />} />
+              <Route path="/portal/reviewer-register" element={<ReviewerRegister />} />
               <Route
                 path="/portal"
                 element={
@@ -202,8 +217,10 @@ function App() {
                 />
                 <Route path="dashboard" element={<ClientDashboard />} />
                 <Route path="projects" element={<MyProjects />} />
-                <Route path="projects/new" element={<CreateProject />} />
+                <Route path="projects/new" element={<CertificationTypeSelection />} />
+                <Route path="projects/new/:certificationCode" element={<CreateProject />} />
                 <Route path="projects/:id" element={<ProjectOverview />} />
+                <Route path="invoices" element={<Invoices />} />
                 <Route
                   path="projects/:id/assessment/:slug"
                   element={<AssessmentSection />}
@@ -223,6 +240,8 @@ function App() {
                 />
                 <Route path="dashboard" element={<ReviewerDashboard />} />
                 <Route path="assignments" element={<ReviewerDashboard />} />
+                <Route path="account" element={<ReviewerAccount />} />
+                <Route path="invoices" element={<Invoices />} />
                 <Route path="projects/:id" element={<ReviewerProject />} />
               </Route>
             </Routes>

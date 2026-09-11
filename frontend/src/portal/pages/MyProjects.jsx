@@ -18,7 +18,7 @@ export default function MyProjects() {
       <PageHeader
         title="My Projects"
         subtitle="All your certification projects in one place."
-        action={<Link to="/portal/projects/new" data-testid="projects-create-btn" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"><PlusCircle className="h-4 w-4" /> New Project</Link>}
+        action={<Link to="/portal/projects/new" data-testid="projects-create-btn" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors"><PlusCircle className="h-4 w-4" /> New Project</Link>}
       />
       {projects.length === 0 ? (
         <Card className="text-center py-12"><p className="text-charcoal/60">No projects yet. Create one to begin the certification wizard.</p></Card>

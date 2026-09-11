@@ -288,6 +288,12 @@ def _score_core(project_type, occupancy, responses, points_key):
 
 def score_project(project: dict) -> dict:
     """Compute claimed score/band from a project's responses. Never fabricates."""
+    if project.get("template_snapshot"):
+        return score_shaped_template(
+            project["template_snapshot"],
+            project.get("responses", {}),
+            "claimed_points",
+        )
     return _score_core(project.get("project_type"), project.get("occupancy_type", "owner"),
                        project.get("responses", {}), "claimed_points")
 
@@ -295,3 +301,81 @@ def score_project(project: dict) -> dict:
 def score_responses(project_type: str, occupancy: str, responses: dict, points_key: str) -> dict:
     """Generic scorer for reviewer-recommended / admin-final tiers."""
     return _score_core(project_type, occupancy, responses, points_key)
+
+
+def project_view_template(project: dict) -> dict:
+    """Return the immutable checklist attached to a project.
+
+    New projects keep a shaped ``template_snapshot`` so a later admin publish
+    cannot silently change an assessment that is already in progress.  Legacy
+    projects continue to use the original in-code template.
+    """
+    snapshot = project.get("template_snapshot")
+    if snapshot:
+        return snapshot
+    return view_template(
+        project.get("project_type"),
+        project.get("occupancy_type", "owner"),
+    )
+
+
+def _band_from_thresholds(thresholds: list, score: float) -> str:
+    for threshold in thresholds or []:
+        if float(threshold.get("min", 0)) <= score <= float(threshold.get("max", 0)):
+            return threshold.get("band") or "Uncertified"
+    return "Uncertified"
+
+
+def score_shaped_template(template: dict, responses: dict, points_key: str) -> dict:
+    """Score responses against a shaped snapshot used by dynamic checklists."""
+    if not template or template.get("under_configuration"):
+        return {
+            "under_configuration": True,
+            "claimed_total": 0,
+            "total_max": 0,
+            "band": "Pending",
+            "categories": {},
+            "mandatory_ok": None,
+        }
+
+    responses = responses or {}
+    category_scores = {}
+    total = 0.0
+    mandatory_ok = True
+
+    for category in template.get("categories") or []:
+        category_max = float(category.get("max_points") or 0)
+        category_total = 0.0
+        for criterion in category.get("criteria") or []:
+            response = responses.get(criterion.get("id"), {}) or {}
+            if criterion.get("mandatory"):
+                if not response.get("met", False):
+                    mandatory_ok = False
+                continue
+            maximum = float(criterion.get("max_points") or 0)
+            value = response.get(points_key, 0) or 0
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                value = 0
+            category_total += max(0, min(value, maximum))
+
+        category_total = min(category_total, category_max)
+        category_scores[category.get("id")] = round(category_total, 1)
+        total += category_total
+
+    total_max = float(template.get("total_max") or 0)
+    total = round(min(total, total_max), 1)
+    return {
+        "under_configuration": False,
+        "claimed_total": total,
+        "total_max": total_max,
+        "band": _band_from_thresholds(template.get("thresholds") or [], total),
+        "categories": category_scores,
+        "mandatory_ok": mandatory_ok,
+    }
+
+
+def score_project_responses(project: dict, responses: dict, points_key: str) -> dict:
+    """Score any response tier while respecting the project's snapshot."""
+    return score_shaped_template(project_view_template(project), responses, points_key)

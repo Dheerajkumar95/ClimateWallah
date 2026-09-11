@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { Factory, Zap, Plane, ArrowRight, ArrowLeft, Leaf, RotateCcw, Info, Gauge } from "lucide-react";
@@ -26,11 +26,11 @@ export default function GHGCalculator() {
   const totalSteps = scopes.length;
   const current = scopes[step];
 
-  const liveScopeTotal = (scope) => scope.activities.reduce((sum, a) => {
+  const liveScopeTotal = useCallback((scope) => scope.activities.reduce((sum, a) => {
     const q = parseFloat(entries[a.id]); return sum + (q > 0 ? q * a.factor : 0);
-  }, 0);
+  }, 0), [entries]);
 
-  const grandLive = useMemo(() => scopes.reduce((s, sc) => s + liveScopeTotal(sc), 0), [scopes, entries]);
+  const grandLive = useMemo(() => scopes.reduce((s, sc) => s + liveScopeTotal(sc), 0), [scopes, liveScopeTotal]);
 
   const setVal = (id, v) => setEntries((s) => ({ ...s, [id]: v }));
 

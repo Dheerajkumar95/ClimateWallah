@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Leaf, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -14,8 +14,15 @@ export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", organization: "", phone: "", password: "" });
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const timer = window.setTimeout(() => setResendCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   const sendOtp = async (e) => {
     e.preventDefault();
@@ -24,6 +31,7 @@ export default function Register() {
       await api.post("/auth/client/register", form);
       toast.success("Verification code sent to your email");
       setStep("otp");
+      setResendCooldown(60);
     } catch (err) {
       toast.error(apiError(err.response?.data?.detail) || "Registration failed");
     } finally {
@@ -49,6 +57,7 @@ export default function Register() {
     try {
       await api.post("/auth/client/resend-otp", { email: form.email });
       toast.success("A new code has been sent");
+      setResendCooldown(60);
     } catch (err) {
       toast.error(apiError(err.response?.data?.detail) || "Could not resend");
     }
@@ -78,11 +87,11 @@ export default function Register() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-charcoal/80 mb-1.5">Organization</label>
-                    <input className={inpCls} value={form.organization} onChange={set("organization")} data-testid="reg-org-input" />
+                    <input className={inpCls} value={form.organization} onChange={set("organization")} required data-testid="reg-org-input" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-charcoal/80 mb-1.5">Phone</label>
-                    <input className={inpCls} value={form.phone} onChange={set("phone")} data-testid="reg-phone-input" />
+                    <input className={inpCls} value={form.phone} onChange={set("phone")} required data-testid="reg-phone-input" />
                   </div>
                 </div>
                 <div>
@@ -91,7 +100,7 @@ export default function Register() {
                   <p className="mt-1 text-xs text-charcoal/50">Min 8 chars with upper, lower and a number.</p>
                 </div>
                 <button type="submit" disabled={loading} data-testid="reg-submit-btn"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-3 text-sm font-medium hover:bg-natural-green transition-colors disabled:opacity-60">
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-3 text-sm font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-60">
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />} Send verification code
                 </button>
               </form>
@@ -112,13 +121,13 @@ export default function Register() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   inputMode="numeric" maxLength={6} placeholder="000000" required data-testid="otp-input" />
                 <button type="submit" disabled={loading || otp.length < 6} data-testid="otp-submit-btn"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-3 text-sm font-medium hover:bg-natural-green transition-colors disabled:opacity-60">
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-3 text-sm font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-60">
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />} Verify & continue
                 </button>
               </form>
               <div className="flex items-center justify-between mt-6 text-sm">
                 <button onClick={() => setStep("details")} className="text-charcoal/60 hover:underline">← Edit details</button>
-                <button onClick={resend} className="text-deep-forest-green font-medium hover:underline" data-testid="resend-otp-btn">Resend code</button>
+                <button disabled={resendCooldown > 0 || loading} onClick={resend} className="text-deep-forest-green font-medium hover:underline disabled:text-[#98A2B3] disabled:no-underline" data-testid="resend-otp-btn">{resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}</button>
               </div>
             </>
           )}

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Loader2, ShieldCheck, ChevronLeft, Save, Send, MessageSquareWarning, Paperclip, Check, X as XIcon } from "lucide-react";
+import { Loader2, ShieldCheck, ChevronLeft, Save, Send, MessageSquareWarning, Paperclip, Check, X as XIcon, Download } from "lucide-react";
 import { toast } from "sonner";
 import { api, resolveUploadUrl } from "@/lib/api";
 import { apiError } from "../PortalAuthContext";
@@ -19,7 +19,7 @@ export default function ReviewerProject() {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await api.get(`/reviewer/projects/${id}`);
     setP(data);
     const existing = data.reviewer_recommendations || {};
@@ -31,9 +31,9 @@ export default function ReviewerProject() {
     }));
     setRecs(seed);
     setComment(data.reviewer_comment || "");
-  };
+  }, [id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const editable = p && EDITABLE.includes(p.status);
   const tpl = p?.template;
@@ -97,6 +97,13 @@ export default function ReviewerProject() {
         <div className="mb-5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 text-sm">This project is {p.status.replace(/_/g, " ")} and is read-only for review.</div>
       )}
 
+      {p.official_record?.review_report_pdf_url && (
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><div className="text-sm font-semibold text-charcoal">Professional review report</div><div className="text-xs text-charcoal/55">Final report generated from your scorecard, evidence review and administrator decision.</div></div>
+          <a href={p.official_record.review_report_pdf_url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green px-4 py-2 text-sm font-medium text-off-white"><Download className="h-4 w-4" /> Download report</a>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         <div className="space-y-4">
           {tpl?.categories?.map((c) => (
@@ -141,7 +148,7 @@ export default function ReviewerProject() {
                               <span className={`capitalize ${f.status === "approved" ? "text-natural-green" : f.status === "rejected" ? "text-red-500" : "text-amber-600"}`}>{f.status}</span>
                               {editable && (
                                 <span className="flex items-center gap-1 shrink-0">
-                                  <button onClick={() => reviewEvidence(cr.id, f.id, "approved")} data-testid={`ev-approve-${f.id}`} className="p-1 rounded hover:bg-natural-green/10 text-natural-green"><Check className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => reviewEvidence(cr.id, f.id, "approved")} data-testid={`ev-approve-${f.id}`} className="p-1 rounded hover:bg-[#20DB72]/10 text-natural-green"><Check className="h-3.5 w-3.5" /></button>
                                   <button onClick={() => reviewEvidence(cr.id, f.id, "rejected")} data-testid={`ev-reject-${f.id}`} className="p-1 rounded hover:bg-red-50 text-red-500"><XIcon className="h-3.5 w-3.5" /></button>
                                 </span>
                               )}
@@ -182,7 +189,7 @@ export default function ReviewerProject() {
             <Card className="space-y-2">
               <button onClick={saveRecs} disabled={busy} data-testid="review-save-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-charcoal/80 hover:bg-warm-beige transition-colors">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save recommendation</button>
               <button onClick={requestChanges} disabled={busy} data-testid="review-request-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-600 transition-colors"><MessageSquareWarning className="h-4 w-4" /> Request changes</button>
-              <button onClick={forward} disabled={busy} data-testid="review-forward-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"><Send className="h-4 w-4" /> Forward to admin</button>
+              <button onClick={forward} disabled={busy} data-testid="review-forward-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors"><Send className="h-4 w-4" /> Forward to admin</button>
             </Card>
           )}
         </div>

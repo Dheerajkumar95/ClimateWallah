@@ -17,15 +17,17 @@ async def _serve(key: str) -> Response:
         raise HTTPException(status_code=404, detail="File not found")
     data, doc = result
     meta = doc.get("metadata") or {}
-    ctype = meta.get("contentType", "application/octet-stream")
+    ctype = storage.safe_content_type(key, meta.get("contentType"))
     original = meta.get("originalName", key.rsplit("/", 1)[-1])
     disposition = "inline" if ctype.startswith(("image/", "application/pdf")) else "attachment"
     return Response(
         content=data,
         media_type=ctype,
         headers={
-            "Content-Disposition": f'{disposition}; filename="{original}"',
+            "Content-Disposition": storage.content_disposition(disposition, original),
             "Cache-Control": "public, max-age=86400",
+            "Content-Security-Policy": "sandbox",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 
@@ -48,3 +50,8 @@ async def get_certificate(filename: str):
 @router.get("/evidence/{project_id}/{filename}")
 async def get_evidence(project_id: str, filename: str):
     return await _serve(f"evidence/{project_id}/{filename}")
+
+
+@router.get("/payment/{filename}")
+async def get_payment_asset(filename: str):
+    return await _serve(f"payment/{filename}")

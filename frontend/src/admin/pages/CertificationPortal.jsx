@@ -152,7 +152,7 @@ export function PortalProjects() {
             <td className="px-4 py-3 text-right">
               {(p.status === "forwarded" || p.status === "certified" || p.status === "rejected") && !p.under_configuration && (
                 <button onClick={() => setReviewId(p.id)} data-testid={`review-open-${p.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-3 py-1.5 text-xs font-medium hover:bg-natural-green transition-colors">
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-3 py-1.5 text-xs font-medium hover:bg-[#20DB72] transition-colors">
                   <Gavel className="h-3.5 w-3.5" /> {p.status === "forwarded" ? "Review & Certify" : "View decision"}
                 </button>
               )}

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import io
@@ -971,6 +972,8 @@ app.include_router(portal_router)
 app.include_router(files_router)
 from app.api.ghg import router as ghg_router
 app.include_router(ghg_router)
+from marketplace import marketplace as marketplace_router, process_subscription_notifications
+app.include_router(marketplace_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -981,17 +984,44 @@ app.add_middleware(
 )
 
 
+_subscription_notification_task = None
+
+
+async def subscription_notification_loop():
+    while True:
+        try:
+            await process_subscription_notifications()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(f"subscription notification check: {exc}")
+        await asyncio.sleep(6 * 60 * 60)
+
+
 @app.on_event("startup")
 async def startup():
+    global _subscription_notification_task
     try:
         await create_indexes()
     except Exception as e:
         logger.warning(f"index creation: {e}")
     await run_seed()
+    from app.services.certification_service import ensure_marketplace_seed
+    from app.services.account_ids import ensure_public_ids
+    await ensure_marketplace_seed()
+    await ensure_public_ids()
+    _subscription_notification_task = asyncio.create_task(subscription_notification_loop())
     logger.info("RES backend ready")
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    global _subscription_notification_task
+    if _subscription_notification_task:
+        _subscription_notification_task.cancel()
+        try:
+            await _subscription_notification_task
+        except asyncio.CancelledError:
+            pass
     from database import client
     client.close()

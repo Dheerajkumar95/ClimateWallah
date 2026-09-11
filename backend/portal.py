@@ -7,11 +7,11 @@ import os
 import uuid
 import random
 import logging
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Form
-from pydantic import BaseModel, EmailStr, field_validator
+from fastapi import APIRouter,BackgroundTasks, HTTPException, Depends, Request, Response, UploadFile, File, Form
+from openai import project
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from database import db
 from app.services import storage
@@ -24,8 +24,17 @@ from portal_auth import (
     current_reviewer, current_reviewer_write,
     current_admin_portal, current_admin_portal_write,
 )
-from rating_template import view_template, score_project, score_responses, template_for_type
-from email_service import send_otp_email
+from rating_template import (
+    project_view_template,
+    score_project,
+    score_project_responses,
+)
+from app.services.certification_service import normalise_code, published_template
+from app.services.pricing_service import area_in_sqft, billing_settings
+from app.services.account_ids import next_public_id
+from app.services.audit_service import record_audit
+from marketplace import _subscription_state, reviewer_is_eligible
+from email_service import send_otp_email, send_email
 from seed import now_iso
 
 logger = logging.getLogger(__name__)
@@ -34,14 +43,11 @@ portal = APIRouter(prefix="/api")
 OTP_TTL_MIN = 5
 OTP_MAX_ATTEMPTS = 5
 OTP_MAX_RESENDS = 5
-OTP_RESEND_COOLDOWN_SEC = 45
+OTP_RESEND_COOLDOWN_SEC = 60
 
 PROJECT_TYPES = ["Commercial", "Residential", "Hotel", "Hospital"]
 
-ROOT_DIR = Path(__file__).parent
 BACKEND_URL = os.environ.get("FRONTEND_URL", "")
-EVIDENCE_DIR = ROOT_DIR / "uploads" / "evidence"
-EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 MAX_UPLOAD = int(os.environ.get("UPLOAD_MAX_SIZE_MB", "15")) * 1024 * 1024
 ALLOWED_UPLOAD_EXT = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".png", ".jpg", ".jpeg", ".webp", ".dwg", ".zip"}
 
@@ -60,13 +66,80 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+async def _portal_notify(user_id: str | None, key: str, title: str, message: str, level: str = "info") -> None:
+    if not user_id:
+        return
+    await db.notifications.update_one(
+        {"user_id": user_id, "key": key},
+        {"$setOnInsert": {"id": str(uuid.uuid4()), "user_id": user_id, "key": key, "title": title, "message": message, "level": level, "read": False, "created_at": now_iso()}},
+        upsert=True,
+    )
+
+
+async def _portal_email(
+    user_id: str | None,
+    subject: str,
+    message: str,
+) -> None:
+    if not user_id:
+        return
+
+    owner = await db.users.find_one(
+        {"id": user_id},
+        {
+            "_id": 0,
+            "email": 1,
+            "name": 1,
+        },
+    )
+
+    if not owner or not owner.get("email"):
+        return
+
+    name = owner.get("name") or "there"
+
+    plain_body = (
+        f"Hello {name},\n\n"
+        f"{message}\n\n"
+        "Regards,\n"
+        "ClimateWallah"
+    )
+
+    html_body = (
+        f"<p>Hello {name},</p>"
+        f"<p>{message}</p>"
+        "<p>Regards,<br/>ClimateWallah</p>"
+    )
+
+    try:
+        await send_email(
+            owner["email"],
+            subject,
+            plain_body,
+            html_body,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Portal notification email failed for user %s: %s",
+            user_id,
+            exc,
+        )
+
 # ---------------- Schemas ----------------
 class RegisterInput(BaseModel):
     name: str
     email: EmailStr
     password: str
-    phone: str | None = None
-    organization: str | None = None
+    phone: str
+    organization: str
+
+    @field_validator("name", "phone", "organization")
+    @classmethod
+    def required_registration_text(cls, value):
+        value = (value or "").strip()
+        if len(value) < 2:
+            raise ValueError("This field must contain at least 2 characters.")
+        return value
 
     @field_validator("password")
     @classmethod
@@ -83,6 +156,22 @@ class ResendOtpInput(BaseModel):
     email: EmailStr
 
 
+class PasswordForgotInput(BaseModel):
+    identifier: str
+
+
+class PasswordResetInput(BaseModel):
+    identifier: str
+    otp: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_password(cls, value):
+        return _strong(value)
+
+
 class LoginInput(BaseModel):
     identifier: str
     password: str
@@ -90,13 +179,22 @@ class LoginInput(BaseModel):
 
 class CreateProjectInput(BaseModel):
     name: str
+    certification_type: str = "IGBC"
     project_type: str
     occupancy_type: str = "owner"
-    building_info: dict = {}
-    location: dict = {}
-    privacy: dict = {}
-    settings: dict = {}
-    team: list = []
+    building_info: dict = Field(default_factory=dict)
+    location: dict = Field(default_factory=dict)
+    privacy: dict = Field(default_factory=dict)
+    settings: dict = Field(default_factory=dict)
+    team: list = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def valid_name(cls, value):
+        value = (value or "").strip()
+        if len(value) < 2:
+            raise ValueError("Project name must contain at least 2 characters.")
+        return value
 
     @field_validator("project_type")
     @classmethod
@@ -107,7 +205,7 @@ class CreateProjectInput(BaseModel):
 
 
 class ResponsesInput(BaseModel):
-    responses: dict = {}
+    responses: dict = Field(default_factory=dict)
     completed_categories: list | None = None
     current_category_index: int | None = None
 
@@ -117,8 +215,8 @@ class CreateReviewerInput(BaseModel):
     email: EmailStr
     password: str
     specialisation: str | None = None
-    project_types: list = []
-    rating_systems: list = []
+    project_types: list = Field(default_factory=list)
+    rating_systems: list = Field(default_factory=list)
     max_workload: int = 5
 
     @field_validator("password")
@@ -144,7 +242,7 @@ class AssignInput(BaseModel):
 
 
 class RecommendationsInput(BaseModel):
-    recommendations: dict = {}
+    recommendations: dict = Field(default_factory=dict)
     reviewer_comment: str | None = None
 
 
@@ -153,9 +251,9 @@ class CommentInput(BaseModel):
 
 
 class FinalizeInput(BaseModel):
-    final: dict = {}
+    final: dict = Field(default_factory=dict)
     decision: str  # 'certified' | 'rejected'
-    certificate: dict = {}
+    certificate: dict = Field(default_factory=dict)
 
     @field_validator("decision")
     @classmethod
@@ -176,10 +274,17 @@ async def _email_taken(email: str) -> bool:
 
 
 def _public_user(u: dict) -> dict:
-    return {
-        "id": u["id"], "name": u.get("name"), "email": u["email"],
+    result = {
+        "id": u["id"], "public_id": u.get("public_id"), "name": u.get("name"), "email": u["email"],
         "role": u.get("role"), "phone": u.get("phone"), "organization": u.get("organization"),
     }
+    if u.get("role") == "reviewer":
+        result.update({
+            "reviewer_status": u.get("reviewer_status", "approved"),
+            "requires_subscription": u.get("requires_subscription", False),
+            "subscription": _subscription_state(u),
+        })
+    return result
 
 
 def _issue_session(response: Response, sub: str, role: str):
@@ -261,17 +366,20 @@ async def client_verify_otp(data: VerifyOtpInput, response: Response):
         await db.pending_registrations.delete_one({"email": email})
         raise HTTPException(status_code=410, detail="Code expired. Please request a new one.")
     if pending.get("attempts", 0) >= OTP_MAX_ATTEMPTS:
-        await db.pending_registrations.delete_one({"email": email})
-        raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please register again.")
+        raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
     if not verify_password(data.otp.strip(), pending["otp_hash"]):
+        next_attempts = pending.get("attempts", 0) + 1
         await db.pending_registrations.update_one({"email": email}, {"$inc": {"attempts": 1}})
-        remaining = OTP_MAX_ATTEMPTS - (pending.get("attempts", 0) + 1)
-        raise HTTPException(status_code=400, detail=f"Invalid code. {max(remaining,0)} attempt(s) left.")
+        if next_attempts >= OTP_MAX_ATTEMPTS:
+            raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
+        remaining = OTP_MAX_ATTEMPTS - next_attempts
+        raise HTTPException(status_code=400, detail=f"Invalid code. {remaining} attempt(s) left.")
     if await _email_taken(email):
         await db.pending_registrations.delete_one({"email": email})
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
     user = {
         "id": str(uuid.uuid4()),
+        "public_id": await next_public_id("client"),
         "name": pending["name"],
         "email": email,
         "phone": pending.get("phone"),
@@ -296,7 +404,7 @@ async def client_resend_otp(data: ResendOtpInput):
     if not pending:
         raise HTTPException(status_code=404, detail="No pending registration. Please register again.")
     if pending.get("resend_count", 0) >= OTP_MAX_RESENDS:
-        raise HTTPException(status_code=429, detail="Resend limit reached. Please register again later.")
+        raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
     last_sent = pending.get("last_sent")
     if last_sent and (_now() - datetime.fromisoformat(last_sent)).total_seconds() < OTP_RESEND_COOLDOWN_SEC:
         raise HTTPException(status_code=429, detail="Please wait a moment before requesting another code.")
@@ -314,6 +422,95 @@ async def client_resend_otp(data: ResendOtpInput):
     return {"message": "A new verification code has been sent.", "email": email}
 
 
+# ---------------- Auth: password recovery ----------------
+async def _find_portal_user(identifier: str) -> dict | None:
+    ident = (identifier or "").strip().lower()
+    if not ident:
+        return None
+    return await db.users.find_one({
+        "$or": [{"email": ident}, {"public_id": ident.upper()}],
+        "active": {"$ne": False},
+        "role": {"$in": ["client", "reviewer"]},
+    })
+
+
+@portal.post("/auth/password/forgot")
+async def forgot_password(data: PasswordForgotInput):
+    user = await _find_portal_user(data.identifier)
+    # Generic success keeps account existence private.
+    if not user:
+        return {"message": "If the account exists, a verification code has been sent."}
+    otp = _gen_otp()
+    await db.pending_password_resets.update_one(
+        {"user_id": user["id"]},
+        {"$set": {
+            "user_id": user["id"], "email": user["email"], "otp_hash": hash_password(otp),
+            "expires_at": (_now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(),
+            "attempts": 0, "resend_count": 0, "last_sent": _now().isoformat(),
+            "created_at": now_iso(),
+        }}, upsert=True,
+    )
+    sent = await send_otp_email(user["email"], user.get("name") or "", otp)
+    if not sent:
+        await db.pending_password_resets.delete_one({"user_id": user["id"]})
+        raise HTTPException(status_code=503, detail="Unable to send verification email. Please try again.")
+    return {"message": "If the account exists, a verification code has been sent.", "expires_in_minutes": OTP_TTL_MIN}
+
+
+@portal.post("/auth/password/resend")
+async def resend_password_otp(data: PasswordForgotInput):
+    user = await _find_portal_user(data.identifier)
+    if not user:
+        return {"message": "If the account exists, a verification code has been sent."}
+    pending = await db.pending_password_resets.find_one({"user_id": user["id"]})
+    if not pending:
+        return await forgot_password(data)
+    if pending.get("resend_count", 0) >= OTP_MAX_RESENDS:
+        raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
+    last_sent = pending.get("last_sent")
+    if last_sent:
+        remaining = OTP_RESEND_COOLDOWN_SEC - int((_now() - datetime.fromisoformat(last_sent)).total_seconds())
+        if remaining > 0:
+            raise HTTPException(status_code=429, detail=f"Please wait {remaining} seconds before requesting another code.")
+    otp = _gen_otp()
+    await db.pending_password_resets.update_one(
+        {"user_id": user["id"]},
+        {"$set": {
+            "otp_hash": hash_password(otp), "expires_at": (_now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(),
+            "attempts": 0, "last_sent": _now().isoformat(),
+        }, "$inc": {"resend_count": 1}},
+    )
+    if not await send_otp_email(user["email"], user.get("name") or "", otp):
+        raise HTTPException(status_code=503, detail="Unable to send verification email. Please try again.")
+    return {"message": "A new verification code has been sent."}
+
+
+@portal.post("/auth/password/reset")
+async def reset_password(data: PasswordResetInput):
+    if data.new_password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+    user = await _find_portal_user(data.identifier)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification request.")
+    pending = await db.pending_password_resets.find_one({"user_id": user["id"]})
+    if not pending:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification request.")
+    if datetime.fromisoformat(pending["expires_at"]) < _now():
+        raise HTTPException(status_code=410, detail="Code expired. Please request a new one.")
+    if pending.get("attempts", 0) >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
+    if not verify_password(data.otp.strip(), pending["otp_hash"]):
+        next_attempts = pending.get("attempts", 0) + 1
+        await db.pending_password_resets.update_one({"user_id": user["id"]}, {"$inc": {"attempts": 1}})
+        if next_attempts >= OTP_MAX_ATTEMPTS:
+            raise HTTPException(status_code=429, detail="Too many verification attempts. Please try again later.")
+        raise HTTPException(status_code=400, detail=f"Invalid code. {OTP_MAX_ATTEMPTS-next_attempts} attempt(s) left.")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(data.new_password), "updated_at": now_iso()}})
+    await db.pending_password_resets.delete_one({"user_id": user["id"]})
+    await db.login_attempts.delete_many({"identifier": {"$regex": re.escape((data.identifier or '').strip()), "$options": "i"}})
+    return {"message": "Password reset successfully. You can now sign in."}
+
+
 # ---------------- Auth: unified login / logout / me ----------------
 @portal.post("/auth/login")
 async def unified_login(data: LoginInput, request: Request, response: Response):
@@ -327,8 +524,11 @@ async def unified_login(data: LoginInput, request: Request, response: Response):
         await clear_attempts(key)
         _issue_session(response, admin["id"], "admin")
         return {"id": admin["id"], "email": admin["email"], "name": admin["name"], "role": "admin"}
-    # Client / reviewer by email
-    user = await db.users.find_one({"email": ident})
+    # Client / reviewer by email or generated CLI-/REV- ID.
+    user = await db.users.find_one({"$or": [
+        {"email": ident},
+        {"public_id": ident.upper()},
+    ]})
     if user and user.get("active", True) and verify_password(data.password, user["password_hash"]):
         await clear_attempts(key)
         _issue_session(response, user["id"], user["role"])
@@ -355,11 +555,13 @@ def _project_summary(p: dict) -> dict:
     score = score_project(p)
     return {
         "id": p["id"], "name": p["name"], "project_type": p["project_type"],
+        "certification_type": p.get("certification_type", "IGBC"),
         "occupancy_type": p.get("occupancy_type", "owner"), "status": p.get("status", "draft"),
         "claimed_total": score.get("claimed_total", 0), "total_max": score.get("total_max"),
         "band": score.get("band"), "under_configuration": score.get("under_configuration", False),
         "reviewer_id": p.get("reviewer_id"), "created_at": p.get("created_at"),
         "updated_at": p.get("updated_at"), "submitted_at": p.get("submitted_at"),
+        "review_payment": p.get("review_payment"),
     }
 
 
@@ -371,13 +573,22 @@ async def list_client_projects(user: dict = Depends(current_client)):
 
 @portal.post("/client/projects")
 async def create_client_project(data: CreateProjectInput, user: dict = Depends(current_client_write)):
-    tpl = template_for_type(data.project_type)
     occ = data.occupancy_type if data.occupancy_type in ("owner", "tenant") else "owner"
+    certification_type = normalise_code(data.certification_type or "IGBC")
+    certification = await db.certification_types.find_one(
+        {"code": certification_type, "active": True}, {"_id": 0}
+    )
+    if not certification:
+        raise HTTPException(status_code=400, detail="Invalid or inactive certification type.")
+    if area_in_sqft(data.building_info) <= 0:
+        raise HTTPException(status_code=400, detail="A valid target certification or built-up area is required.")
+    tpl = await published_template(certification_type, data.project_type, occ)
     project = {
         "id": str(uuid.uuid4()),
         "client_id": user["id"],
         "name": data.name.strip(),
         "project_type": data.project_type,
+        "certification_type": certification_type,
         "occupancy_type": occ,
         "building_info": data.building_info,
         "location": data.location,
@@ -386,8 +597,9 @@ async def create_client_project(data: CreateProjectInput, user: dict = Depends(c
         "team": data.team,
         "media": [],
         "evidence": {},
-        "rating_system_id": tpl["id"] if tpl else None,
-        "under_configuration": tpl is None,
+        "rating_system_id": tpl.get("id"),
+        "template_snapshot": tpl,
+        "under_configuration": tpl.get("under_configuration", True),
         "status": "draft",
         "responses": {},
         "completed_categories": [],
@@ -418,14 +630,14 @@ async def get_client_project(project_id: str, user: dict = Depends(current_clien
     p.pop("reviewer_recommendations", None)
     p.pop("recommended_score", None)
     if p.get("status") in ("certified", "rejected") and p.get("official_record"):
-        p["final_score"] = score_responses(p["project_type"], p.get("occupancy_type", "owner"), p.get("final_responses") or {}, "final_points")
+        p["final_score"] = score_project_responses(p, p.get("final_responses") or {}, "final_points")
     return p
 
 
 @portal.get("/client/projects/{project_id}/template")
 async def get_client_project_template(project_id: str, user: dict = Depends(current_client)):
     p = await _get_owned_project(project_id, user)
-    return view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    return project_view_template(p)
 
 
 async def _add_timeline(project_id: str, event: str, frm, to, actor: str, note: str = None):
@@ -465,7 +677,7 @@ def _section_states(p: dict, tpl: dict):
 @portal.get("/client/projects/{project_id}/assessment")
 async def get_assessment_overview(project_id: str, user: dict = Depends(current_client)):
     p = await _get_owned_project(project_id, user)
-    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    tpl = project_view_template(p)
     score = score_project(p)
     return {
         "project": {"id": p["id"], "name": p["name"], "project_type": p["project_type"],
@@ -477,6 +689,7 @@ async def get_assessment_overview(project_id: str, user: dict = Depends(current_
         "timeline": p.get("timeline", []),
         "reviewer_comment": p.get("reviewer_comment") if p.get("status") == "changes_requested" else None,
         "official_record": p.get("official_record"),
+        "review_payment": p.get("review_payment"),
         "editable": p.get("status") in ("draft", "changes_requested") and not p.get("under_configuration"),
     }
 
@@ -484,7 +697,7 @@ async def get_assessment_overview(project_id: str, user: dict = Depends(current_
 @portal.get("/client/projects/{project_id}/assessment/{slug}")
 async def get_assessment_section(project_id: str, slug: str, user: dict = Depends(current_client)):
     p = await _get_owned_project(project_id, user)
-    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    tpl = project_view_template(p)
     if tpl.get("under_configuration"):
         raise HTTPException(status_code=409, detail="Checklist under configuration for this project type.")
     cats = tpl["categories"]
@@ -515,7 +728,7 @@ async def save_assessment_section(project_id: str, slug: str, data: ResponsesInp
     p = await _get_owned_project(project_id, user)
     if p.get("status") not in ("draft", "changes_requested"):
         raise HTTPException(status_code=409, detail="Project can no longer be edited.")
-    tpl = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    tpl = project_view_template(p)
     if tpl.get("under_configuration"):
         raise HTTPException(status_code=409, detail="Checklist under configuration for this project type.")
     cats = tpl["categories"]
@@ -557,12 +770,13 @@ async def _save_upload(project_id: str, up: UploadFile, content: bytes) -> dict:
         raise HTTPException(status_code=400, detail=f"File too large (max {MAX_UPLOAD // (1024*1024)} MB).")
     fid = uuid.uuid4().hex
     fname = f"{fid}{ext}"
+    content_type = storage.safe_content_type(fname, up.content_type)
     await storage.save_bytes(f"evidence/{project_id}/{fname}", content,
-                             up.content_type or "application/octet-stream", original_name=up.filename)
+                             content_type, original_name=up.filename)
     return {
         "id": fid, "filename": fname, "original_name": up.filename,
         "url": f"/api/uploads/evidence/{project_id}/{fname}",
-        "size": len(content), "content_type": up.content_type,
+        "size": len(content), "content_type": content_type,
         "uploaded_at": now_iso(), "status": "pending", "review": None,
     }
 
@@ -658,6 +872,11 @@ async def submit_client_project(project_id: str, user: dict = Depends(current_cl
     score = score_project(p)
     if not score.get("mandatory_ok", False):
         raise HTTPException(status_code=400, detail="All mandatory criteria must be marked as met before submitting.")
+    if (p.get("review_payment") or {}).get("status") != "paid":
+        raise HTTPException(
+            status_code=402,
+            detail="Complete and verify the review fee payment before submitting this project.",
+        )
     snapshot = {
         "version": p.get("version", 0) + 1,
         "responses": p.get("responses", {}),
@@ -698,9 +917,9 @@ async def reviewer_project(project_id: str, user: dict = Depends(current_reviewe
     if not p:
         raise HTTPException(status_code=404, detail="Assignment not found")
     p["score"] = score_project(p)
-    p["template"] = view_template(p["project_type"], p.get("occupancy_type", "owner"))
+    p["template"] = project_view_template(p)
     rec = p.get("reviewer_recommendations") or {}
-    p["recommended_score"] = score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")
+    p["recommended_score"] = score_project_responses(p, rec, "recommended_points")
     client = await db.users.find_one({"id": p["client_id"]}, {"_id": 0, "name": 1, "email": 1, "organization": 1})
     p["client"] = client or {}
     return p
@@ -726,7 +945,7 @@ async def reviewer_save_recommendations(project_id: str, data: RecommendationsIn
     if data.reviewer_comment is not None:
         update["reviewer_comment"] = data.reviewer_comment
     await db.certification_projects.update_one({"id": project_id}, {"$set": update})
-    return {"saved": True, "recommended_score": score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")}
+    return {"saved": True, "recommended_score": score_project_responses(p, rec, "recommended_points")}
 
 
 @portal.post("/reviewer/projects/{project_id}/request-changes")
@@ -739,6 +958,8 @@ async def reviewer_request_changes(project_id: str, data: CommentInput, user: di
         "updated_at": now_iso(),
     }})
     await _add_timeline(project_id, "Changes Requested", p.get("status"), "changes_requested", user.get("name") or "Reviewer", note=data.comment)
+    await _portal_notify(p.get("client_id"), f"changes-{project_id}-{now_iso()}", "Changes requested", f"Reviewer requested changes for {p.get('name') or 'your project'}.", "warning")
+    await _portal_email(p.get("client_id"), "Changes requested for your ClimateWallah project", f"The reviewer requested changes for <b>{p.get('name') or 'your project'}</b>. Please sign in to review the comments and update your submission.")
     return {"status": "changes_requested"}
 
 
@@ -748,7 +969,7 @@ async def reviewer_forward(project_id: str, data: CommentInput, user: dict = Dep
     if p.get("status") not in REVIEWER_EDITABLE:
         raise HTTPException(status_code=409, detail="This project cannot be forwarded from its current state.")
     rec = p.get("reviewer_recommendations") or {}
-    rec_score = score_responses(p["project_type"], p.get("occupancy_type", "owner"), rec, "recommended_points")
+    rec_score = score_project_responses(p, rec, "recommended_points")
     if not rec_score.get("mandatory_ok", False):
         raise HTTPException(status_code=400, detail="Mark all mandatory criteria as met in your recommendation before forwarding.")
     update = {"status": "forwarded", "recommended_score": rec_score, "forwarded_at": now_iso(), "updated_at": now_iso()}
@@ -756,6 +977,8 @@ async def reviewer_forward(project_id: str, data: CommentInput, user: dict = Dep
         update["reviewer_comment"] = data.comment
     await db.certification_projects.update_one({"id": project_id}, {"$set": update})
     await _add_timeline(project_id, "Forwarded to Admin", p.get("status"), "forwarded", user.get("name") or "Reviewer")
+    await _portal_notify(p.get("client_id"), f"forwarded-{project_id}-{now_iso()}", "Review completed", f"Reviewer completed the assessment of {p.get('name') or 'your project'} and forwarded it for the final decision.", "success")
+    await _portal_email(p.get("client_id"), "Your ClimateWallah review is complete", f"The reviewer has completed the assessment of <b>{p.get('name') or 'your project'}</b>. It is now awaiting the final administrative decision.")
     return {"status": "forwarded", "recommended_score": rec_score}
 
 
@@ -779,7 +1002,38 @@ async def admin_portal_dashboard(user: dict = Depends(current_admin_portal)):
         "certified": await cnt({"status": "certified"}),
         "rejected": await cnt({"status": "rejected"}),
         "drafts": await cnt({"status": "draft"}),
+        "pending_reviewer_applications": await db.users.count_documents({
+            "role": "reviewer", "reviewer_status": {"$in": ["pending_documents", "pending_review", "changes_requested"]}
+        }),
+        "expired_reviewer_plans": await db.users.count_documents({
+            "role": "reviewer", "requires_subscription": True,
+            "$or": [{"subscription.ends_at": {"$lt": now_iso()}}, {"subscription": {"$exists": False}}],
+        }),
+        "approved_earnings_paise": sum(
+            row.get("gross_paise", row.get("base_paise", 0))
+            for row in await db.reviewer_earnings.find({"status": "approved"}, {"_id": 0}).to_list(5000)
+        ),
     }
+
+
+@portal.get("/admin/portal/analytics")
+async def admin_portal_analytics(user: dict = Depends(current_admin_portal)):
+    projects = await db.certification_projects.find({}, {"_id": 0, "status": 1, "created_at": 1, "submitted_at": 1, "official_record": 1, "review_payment": 1}).to_list(10000)
+    orders = await db.payment_orders.find({"status": "paid"}, {"_id": 0, "amount_paise": 1, "paid_at": 1, "created_at": 1, "kind": 1}).to_list(10000)
+    months = {}
+    for o in orders:
+        stamp = o.get("paid_at") or o.get("created_at") or ""; month = stamp[:7] if len(stamp) >= 7 else "Unknown"
+        row = months.setdefault(month, {"month": month, "revenue_paise": 0, "payments": 0})
+        row["revenue_paise"] += int(o.get("amount_paise") or 0); row["payments"] += 1
+    status_counts = {}
+    for p in projects: status_counts[p.get("status") or "unknown"] = status_counts.get(p.get("status") or "unknown", 0) + 1
+    completed = [p for p in projects if p.get("official_record", {}).get("finalized_at") and p.get("submitted_at")]
+    turnaround = []
+    for p in completed:
+        try:
+            a=datetime.fromisoformat(p["submitted_at"].replace("Z","+00:00")); b=datetime.fromisoformat(p["official_record"]["finalized_at"].replace("Z","+00:00")); turnaround.append((b-a).total_seconds()/86400)
+        except Exception: pass
+    return {"total_revenue_paise": sum(int(o.get("amount_paise") or 0) for o in orders), "paid_transactions": len(orders), "status_counts": status_counts, "monthly_revenue": sorted(months.values(), key=lambda x:x["month"])[-12:], "average_turnaround_days": round(sum(turnaround)/len(turnaround),1) if turnaround else 0, "completion_rate": round(100*sum(1 for p in projects if p.get("status") in ("certified","rejected"))/len(projects),1) if projects else 0}
 
 
 @portal.get("/admin/portal/clients")
@@ -847,7 +1101,10 @@ async def admin_portal_client_detail(
 
 @portal.get("/admin/portal/reviewers")
 async def admin_portal_reviewers(user: dict = Depends(current_admin_portal)):
-    rows = await db.users.find({"role": "reviewer", "active": {"$ne": False}}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    rows = await db.users.find(
+        {"role": "reviewer", "active": {"$ne": False}},
+        {"_id": 0, "password_hash": 0, "payout_profile.encrypted": 0},
+    ).sort("created_at", -1).to_list(1000)
     for r in rows:
         r["active_assignments"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["assigned", "under_review", "changes_requested"]}})
         r["completed_reviews"] = await db.certification_projects.count_documents({"reviewer_id": r["id"], "status": {"$in": ["forwarded", "certified", "rejected"]}})
@@ -855,7 +1112,11 @@ async def admin_portal_reviewers(user: dict = Depends(current_admin_portal)):
         r.setdefault("project_types", [])
         r.setdefault("rating_systems", [])
         r.setdefault("specialisation", None)
-        r["available"] = r["active_assignments"] < r.get("max_workload", 5)
+        r["subscription_state"] = _subscription_state(r)
+        eligible, reason = await reviewer_is_eligible(r)
+        r["eligible"] = eligible
+        r["eligibility_reason"] = reason
+        r["available"] = eligible and r["active_assignments"] < r.get("max_workload", 5)
     return rows
 
 @portal.get("/admin/portal/reviewers/{reviewer_id}")
@@ -865,7 +1126,7 @@ async def admin_portal_reviewer_detail(
 ):
     reviewer = await db.users.find_one(
         {"id": reviewer_id, "role": "reviewer"},
-        {"_id": 0, "password_hash": 0},
+        {"_id": 0, "password_hash": 0, "payout_profile.encrypted": 0},
     )
 
     if not reviewer:
@@ -908,6 +1169,13 @@ async def admin_portal_reviewer_detail(
             "rejected",
         )
     )
+    reviewer["subscription_state"] = _subscription_state(reviewer)
+    reviewer["documents"] = await db.reviewer_documents.find(
+        {"reviewer_id": reviewer_id}, {"_id": 0, "key": 0}
+    ).sort("uploaded_at", -1).to_list(50)
+    reviewer["earnings"] = await db.reviewer_earnings.find(
+        {"reviewer_id": reviewer_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
 
     return reviewer
 
@@ -1010,6 +1278,7 @@ async def admin_create_reviewer(data: CreateReviewerInput, user: dict = Depends(
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
     reviewer = {
         "id": str(uuid.uuid4()),
+        "public_id": await next_public_id("reviewer"),
         "name": data.name.strip(),
         "email": email,
         "password_hash": hash_password(data.password),
@@ -1020,6 +1289,8 @@ async def admin_create_reviewer(data: CreateReviewerInput, user: dict = Depends(
         "max_workload": max(1, int(data.max_workload or 5)),
         "active": True,
         "email_verified": True,
+        "reviewer_status": "approved",
+        "requires_subscription": True,
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
@@ -1043,13 +1314,24 @@ async def admin_portal_projects(user: dict = Depends(current_admin_portal)):
 
 
 @portal.post("/admin/portal/assign")
-async def admin_assign_reviewer(data: AssignInput, user: dict = Depends(current_admin_portal_write)):
+async def admin_assign_reviewer(data: AssignInput,background_tasks: BackgroundTasks, user: dict = Depends(current_admin_portal_write)):
     project = await db.certification_projects.find_one({"id": data.project_id}, {"_id": 0})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     reviewer = await db.users.find_one({"id": data.reviewer_id, "role": "reviewer"})
     if not reviewer:
         raise HTTPException(status_code=404, detail="Reviewer not found")
+    if not reviewer.get("active", True):
+        raise HTTPException(status_code=409, detail="Reviewer account is inactive.")
+    eligible, reason = await reviewer_is_eligible(reviewer)
+    if not eligible:
+        raise HTTPException(status_code=409, detail=reason)
+    active_workload = await db.certification_projects.count_documents({
+        "reviewer_id": reviewer["id"],
+        "status": {"$in": ["assigned", "under_review", "changes_requested"]},
+    })
+    if active_workload >= int(reviewer.get("max_workload") or 5):
+        raise HTTPException(status_code=409, detail="Reviewer has reached the maximum active workload.")
     if project.get("status") not in ("submitted", "changes_requested", "assigned", "under_review"):
         raise HTTPException(status_code=409, detail="Only submitted/under-review projects can be assigned.")
     is_reassign = bool(project.get("reviewer_id")) and project.get("reviewer_id") != data.reviewer_id
@@ -1072,10 +1354,74 @@ async def admin_assign_reviewer(data: AssignInput, user: dict = Depends(current_
         "id": hist["id"], "project_id": data.project_id, "reviewer_id": data.reviewer_id,
         "assigned_by": user["id"], "assigned_at": now_iso(),
     })
-    await _add_timeline(data.project_id, "Reviewer Reassigned" if is_reassign else "Reviewer Assigned",
-                        project.get("status"), "assigned", user.get("name") or "Admin", note=reviewer.get("name"))
-    return {"assigned": True, "reassigned": is_reassign}
+    await _add_timeline(
+    data.project_id,
+    "Reviewer Reassigned" if is_reassign else "Reviewer Assigned",
+    project.get("status"),
+    "assigned",
+    user.get("name") or "Admin",
+    note=reviewer.get("name"),
+)
 
+    await _portal_notify(
+        data.reviewer_id,
+        f"assignment-{hist['id']}",
+        "New project assignment",
+        f"You have been assigned to {project.get('name') or 'a certification project'}. "
+        f"Due: {data.due_date or 'not specified'}.",
+        "info",
+    )
+
+    await _portal_notify(
+        project.get("client_id"),
+        f"reviewer-assigned-{hist['id']}",
+        "Reviewer assigned",
+        f"A reviewer has been assigned to {project.get('name') or 'your project'}.",
+        "success",
+    )
+
+    # Reviewer email - send in background
+    background_tasks.add_task(
+        _portal_email,
+        data.reviewer_id,
+        "New ClimateWallah review assignment",
+        (
+            f"You have been assigned to review "
+            f"<b>{project.get('name') or 'a certification project'}</b>. "
+            f"Due date: <b>{data.due_date or 'not specified'}</b>. "
+            "Please sign in to begin the assessment."
+        ),
+    )
+
+    # Client email - send in background
+    background_tasks.add_task(
+        _portal_email,
+        project.get("client_id"),
+        "Reviewer assigned to your ClimateWallah project",
+        (
+            f"A reviewer has been assigned to "
+            f"<b>{project.get('name') or 'your project'}</b>. "
+            "You can track progress from your portal dashboard."
+        ),
+    )
+
+    await record_audit(
+        user,
+        "reviewer_reassigned" if is_reassign else "reviewer_assigned",
+        "certification_project",
+        data.project_id,
+        "Reviewer assignment updated",
+        {
+            "reviewer_id": data.reviewer_id,
+            "due_date": data.due_date,
+            "priority": data.priority,
+        },
+    )
+
+    return {
+        "assigned": True,
+        "reassigned": is_reassign,
+    }
 
 @portal.post("/admin/portal/projects/{project_id}/unassign")
 async def admin_unassign_reviewer(project_id: str, user: dict = Depends(current_admin_portal_write)):
@@ -1092,6 +1438,9 @@ async def admin_unassign_reviewer(project_id: str, user: dict = Depends(current_
          "$push": {"assignment_history": hist}},
     )
     await _add_timeline(project_id, "Reviewer Removed", project.get("status"), "submitted", user.get("name") or "Admin")
+    await _portal_notify(prev, f"assignment-removed-{project_id}-{hist['id']}", "Assignment removed", f"Your assignment for {project.get('name') or 'a project'} has been removed by Admin.", "warning")
+    await _portal_notify(project.get("client_id"), f"reviewer-unassigned-{hist['id']}", "Reviewer assignment updated", f"The reviewer assignment for {project.get('name') or 'your project'} is being updated.", "warning")
+    await record_audit(user, "reviewer_unassigned", "certification_project", project_id, "Reviewer removed from project", {"previous_reviewer_id": prev})
     return {"unassigned": True}
 
 
@@ -1100,12 +1449,11 @@ async def admin_portal_project_detail(project_id: str, user: dict = Depends(curr
     p = await db.certification_projects.find_one({"id": project_id}, {"_id": 0})
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
-    occ = p.get("occupancy_type", "owner")
-    p["template"] = view_template(p["project_type"], occ)
+    p["template"] = project_view_template(p)
     p["claimed_score"] = score_project(p)
-    p["recommended_score"] = score_responses(p["project_type"], occ, p.get("reviewer_recommendations") or {}, "recommended_points")
+    p["recommended_score"] = score_project_responses(p, p.get("reviewer_recommendations") or {}, "recommended_points")
     if p.get("final_responses"):
-        p["final_score"] = score_responses(p["project_type"], occ, p.get("final_responses"), "final_points")
+        p["final_score"] = score_project_responses(p, p.get("final_responses"), "final_points")
     p["client"] = await db.users.find_one({"id": p["client_id"]}, {"_id": 0, "name": 1, "email": 1, "organization": 1}) or {}
     if p.get("reviewer_id"):
         p["reviewer"] = await db.users.find_one({"id": p["reviewer_id"]}, {"_id": 0, "name": 1, "email": 1}) or {}
@@ -1119,9 +1467,8 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
         raise HTTPException(status_code=404, detail="Project not found")
     if p.get("under_configuration"):
         raise HTTPException(status_code=409, detail="This project type has no configured checklist.")
-    occ = p.get("occupancy_type", "owner")
     final_resp = data.final or {}
-    final_score = score_responses(p["project_type"], occ, final_resp, "final_points")
+    final_score = score_project_responses(p, final_resp, "final_points")
     if data.decision == "certified":
         if not final_score.get("mandatory_ok", False):
             raise HTTPException(status_code=400, detail="All mandatory criteria must be met to certify this project.")
@@ -1142,7 +1489,7 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
     if data.decision == "certified":
         try:
             from app.services import pdf_service, storage
-            tpl = view_template(p["project_type"], occ)
+            tpl = project_view_template(p)
             cat_names = {c["id"]: c["name"] for c in (tpl.get("categories") or [])}
             record_for_pdf = {**official, "categories": final_score.get("categories")}
             cert_key = f"certificates/{project_id}-certificate.pdf"
@@ -1155,6 +1502,17 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
             official["docket_pdf_url"] = f"{BACKEND_URL}/api/uploads/{docket_key}"
         except Exception as e:
             logger.error(f"certificate PDF generation failed for {project_id}: {e}")
+    try:
+        from app.services import pdf_service, storage
+        client_for_report = await db.users.find_one({"id": p.get("client_id")}, {"_id": 0, "name": 1, "email": 1, "organization": 1}) or {}
+        reviewer_for_report = await db.users.find_one({"id": p.get("reviewer_id")}, {"_id": 0, "name": 1, "email": 1}) or {} if p.get("reviewer_id") else {}
+        report_project = {**p, "official_record": official, "final_responses": final_resp, "final_score": final_score}
+        report_key = f"certificates/{project_id}-review-report.pdf"
+        await storage.save_bytes(report_key, pdf_service.build_review_report(report_project, reviewer_for_report, client_for_report), "application/pdf", original_name="ClimateWallah-Review-Report.pdf")
+        official["review_report_pdf_url"] = f"{BACKEND_URL}/api/uploads/{report_key}"
+    except Exception as e:
+        logger.error(f"review report PDF generation failed for {project_id}: {e}")
+
     await db.certification_projects.update_one(
         {"id": project_id},
         {"$set": {
@@ -1165,5 +1523,39 @@ async def admin_finalize_project(project_id: str, data: FinalizeInput, user: dic
             "updated_at": now_iso(),
         }},
     )
+    if p.get("reviewer_id"):
+        settings = await billing_settings()
+        reviewer = await db.users.find_one({"id": p["reviewer_id"], "role": "reviewer"}, {"_id": 0}) or {}
+        base_paise = int(settings.get("reviewer_project_earning_paise", 29900))
+        gst_rate = float(settings.get("gst_rate", 18)) if (reviewer.get("payout_profile") or {}).get("gst_registered") else 0
+        gst_paise = int(round(base_paise * gst_rate / 100))
+        earning_mode = "live"
+        await db.reviewer_earnings.update_one(
+            {"reviewer_id": p["reviewer_id"], "project_id": project_id},
+            {"$setOnInsert": {
+                "id": str(uuid.uuid4()),
+                "reviewer_id": p["reviewer_id"],
+                "project_id": project_id,
+                "project_name": p.get("name"),
+                "kind": "project_review",
+                "base_paise": base_paise,
+                "gst_rate": gst_rate,
+                "gst_paise": gst_paise,
+                "gross_paise": base_paise + gst_paise,
+                "currency": "INR",
+                "status": "approved",
+                "payment_mode": earning_mode,
+                "approved_at": now_iso(),
+                "created_at": now_iso(),
+            }},
+            upsert=True,
+        )
     await _add_timeline(project_id, "Certified" if data.decision == "certified" else "Rejected", p.get("status"), official["decision"], user.get("name") or "Admin", note=official.get("certificate_number"))
+    await _portal_notify(p.get("client_id"), f"project-finalized-{project_id}-{official['finalized_at']}", "Project certified" if data.decision == "certified" else "Project decision completed", f"{p.get('name') or 'Your project'} has been {data.decision}." + (f" Certificate: {official.get('certificate_number')}." if official.get('certificate_number') else ""), "success" if data.decision == "certified" else "warning")
+    if p.get("reviewer_id"):
+        await _portal_notify(p.get("reviewer_id"), f"review-completed-{project_id}-{official['finalized_at']}", "Review completed", f"Admin finalized {p.get('name') or 'the project'} as {data.decision}.", "success")
+    await _portal_email(p.get("client_id"), "ClimateWallah project decision completed", f"Your project <b>{p.get('name') or 'project'}</b> has been <b>{data.decision}</b>. Sign in to view the final score and download the available reports.")
+    if p.get("reviewer_id"):
+        await _portal_email(p.get("reviewer_id"), "ClimateWallah review finalized", f"The project <b>{p.get('name') or 'project'}</b> you reviewed has been finalized as <b>{data.decision}</b>.")
+    await record_audit(user, "project_finalized", "certification_project", project_id, f"Project {data.decision}", {"decision": data.decision, "certificate_number": official.get("certificate_number"), "final_total": official.get("final_total")})
     return {"status": official["decision"], "official_record": official, "final_score": final_score}

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -9,15 +9,16 @@ import { GeoLocationField } from "../components/GeoLocationField";
 
 const STEPS = ["Details", "Building Info", "Location", "Privacy", "Media", "Team"];
 const PROJECT_TYPES = ["Commercial", "Residential", "Hotel", "Hospital"];
-const CONFIGURED = ["Commercial", "Residential"];
 const AREA_UNITS = ["sq.m", "sq.ft"];
 
 export default function CreateProject() {
   const navigate = useNavigate();
+  const { certificationCode = "IGBC" } = useParams();
+  const [certification, setCertification] = useState(null);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    name: "", project_type: "Commercial", occupancy_type: "owner",
+    name: "", certification_type: certificationCode.toUpperCase(), project_type: "Commercial", occupancy_type: "owner",
     building_info: {
       space_title: "", occupancy_category: "", built_up_area: "", built_up_unit: "sq.m",
       target_area: "", target_unit: "sq.m", site_area: "", num_floors: "", num_buildings: "1",
@@ -30,6 +31,15 @@ export default function CreateProject() {
     settings: { target_rating: "Gold" },
     team: [],
   });
+
+  useEffect(() => {
+    api.get(`/public/certification-types/${certificationCode}`)
+      .then(({ data }) => setCertification(data))
+      .catch(() => {
+        toast.error("Certification pathway is unavailable");
+        navigate("/portal/projects/new", { replace: true });
+      });
+  }, [certificationCode, navigate]);
 
   const set = (path, value) => {
     setForm((f) => {
@@ -51,6 +61,11 @@ export default function CreateProject() {
 
   const submit = async () => {
     if (!form.name.trim()) { toast.error("Project name is required"); setStep(0); return; }
+    if (!(Number(form.building_info.target_area) > 0 || Number(form.building_info.built_up_area) > 0)) {
+      toast.error("Enter a valid target certification or built-up area");
+      setStep(1);
+      return;
+    }
     setSaving(true);
     try {
       const { data } = await api.post("/client/projects", form);
@@ -65,7 +80,10 @@ export default function CreateProject() {
 
   return (
     <div data-testid="create-project">
-      <PageHeader title="Create Certification Project" subtitle="Set up a new IGBC-style certification project." />
+      <PageHeader
+        title={`Create ${certification?.name || certificationCode.toUpperCase()} Project`}
+        subtitle={`${certification?.full_name || "Certification pathway"} · complete the project setup below.`}
+      />
 
       {/* Stepper */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
@@ -93,9 +111,9 @@ export default function CreateProject() {
               <div>
                 <label className="block text-sm font-medium text-charcoal/80 mb-1.5">Project type</label>
                 <select className={inpCls} value={form.project_type} onChange={(e) => set("project_type", e.target.value)} data-testid="cp-type">
-                  {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}{CONFIGURED.includes(t) ? "" : " (checklist under configuration)"}</option>)}
+                  {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}{certification?.configured_project_types?.includes(t) ? "" : " (checklist under configuration)"}</option>)}
                 </select>
-                {!CONFIGURED.includes(form.project_type) && <p className="mt-1 text-xs text-amber-600">This type's checklist is under configuration — you can create the project but the wizard opens later.</p>}
+                {certification && !certification.configured_project_types?.includes(form.project_type) && <p className="mt-1 text-xs text-amber-600">This pathway checklist is under configuration for {form.project_type} — you can create the project and begin after the admin publishes it.</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-charcoal/80 mb-1.5">Occupancy</label>
@@ -190,9 +208,9 @@ export default function CreateProject() {
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <button onClick={prev} disabled={step === 0} className="inline-flex items-center gap-1.5 text-sm text-charcoal/70 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /> Back</button>
           {step < STEPS.length - 1 ? (
-            <button onClick={next} data-testid="cp-next" className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors">Next <ChevronRight className="h-4 w-4" /></button>
+            <button onClick={next} data-testid="cp-next" className="inline-flex items-center gap-1.5 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors">Next <ChevronRight className="h-4 w-4" /></button>
           ) : (
-            <button onClick={submit} disabled={saving} data-testid="cp-submit" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Create project</button>
+            <button onClick={submit} disabled={saving} data-testid="cp-submit" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Create project</button>
           )}
         </div>
       </Card>

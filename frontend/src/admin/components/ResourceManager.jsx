@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { Plus, Pencil, Trash2, Search, Upload, Loader2 } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { toast } from "sonner";
@@ -63,11 +63,11 @@ export function ResourceManager({ title, subtitle, coll, fields, columns, defaul
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try { const { data } = await api.get(`/admin/${coll}`); setItems(data); }
     catch { setItems([]); }
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [coll]);
+  }, [coll]);
+  useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setEditing(null); setForm({ ...defaults }); setModal(true); };
   const openEdit = (item) => { setEditing(item); setForm({ ...item }); setModal(true); };

@@ -11,7 +11,17 @@ from database import db
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "480"))
-COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() == "true"
+COOKIE_SECURE_SETTING = os.environ.get("COOKIE_SECURE", "auto").strip().lower()
+
+
+def cookie_secure() -> bool:
+    """Use Secure cookies in HTTPS deployments while keeping localhost HTTP usable."""
+    if COOKIE_SECURE_SETTING in {"1", "true", "yes", "on"}:
+        return True
+    if COOKIE_SECURE_SETTING in {"0", "false", "no", "off"}:
+        return False
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip().lower()
+    return frontend_url.startswith("https://")
 
 MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
@@ -41,11 +51,11 @@ def create_access_token(subject_id: str, role: str = "admin") -> str:
 
 def set_auth_cookies(response: Response, token: str, csrf: str):
     response.set_cookie(
-        key="access_token", value=token, httponly=True, secure=COOKIE_SECURE,
+        key="access_token", value=token, httponly=True, secure=cookie_secure(),
         samesite="lax", max_age=JWT_EXPIRE_MINUTES * 60, path="/",
     )
     response.set_cookie(
-        key="csrf_token", value=csrf, httponly=False, secure=COOKIE_SECURE,
+        key="csrf_token", value=csrf, httponly=False, secure=cookie_secure(),
         samesite="lax", max_age=JWT_EXPIRE_MINUTES * 60, path="/",
     )
 

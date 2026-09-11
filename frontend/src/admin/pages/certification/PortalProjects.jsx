@@ -472,10 +472,11 @@ function FinalizeModal({ projectId, onClose, onDone }) {
             {completed ? (
               <div className="rounded-xl border border-[#E4E7EC] bg-[#F6F8FA] px-4 py-3 text-sm text-[#667085]">
                 <div>Recorded: <strong className="capitalize text-[#172033]">{detail.official_record?.decision}</strong> · Band {detail.official_record?.band} · {detail.official_record?.certificate_number || "no cert #"}</div>
-                {(detail.official_record?.certificate_pdf_url || detail.official_record?.docket_pdf_url) && (
+                {(detail.official_record?.certificate_pdf_url || detail.official_record?.docket_pdf_url || detail.official_record?.review_report_pdf_url) && (
                   <div className="mt-3 flex flex-wrap gap-2.5">
                     {detail.official_record?.certificate_pdf_url && <DownloadLink href={detail.official_record.certificate_pdf_url} label="Certificate" testid="admin-download-certificate" />}
                     {detail.official_record?.docket_pdf_url && <DownloadLink href={detail.official_record.docket_pdf_url} label="Docket" testid="admin-download-docket" outline />}
+                    {detail.official_record?.review_report_pdf_url && <DownloadLink href={detail.official_record.review_report_pdf_url} label="Review report" testid="admin-download-review-report" outline />}
                   </div>
                 )}
               </div>

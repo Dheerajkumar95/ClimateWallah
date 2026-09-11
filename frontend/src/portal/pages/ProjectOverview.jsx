@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Loader2, Lock, Check, CircleDot, ShieldCheck, Send, Award, AlertCircle, ArrowRight, Clock, Download } from "lucide-react";
+import { Loader2, Lock, Check, CircleDot, ShieldCheck, Send, Award, AlertCircle, ArrowRight, Clock, Download, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { money, openRazorpayCheckout } from "@/lib/razorpay";
+import QrPaymentDialog from "@/components/payment/QrPaymentDialog";
 import { apiError } from "../PortalAuthContext";
 import { PageHeader, Card, StatusBadge, BandBadge, ProgressBar } from "./ui";
 
@@ -13,9 +15,17 @@ export default function ProjectOverview() {
   const navigate = useNavigate();
   const [d, setD] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [quote, setQuote] = useState(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("razorpay");
+  const [qrOrder, setQrOrder] = useState(null);
 
-  const load = () => api.get(`/client/projects/${id}/assessment`).then(({ data }) => setD(data)).catch(() => setD(false));
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  const load = useCallback(
+    () => api.get(`/client/projects/${id}/assessment`).then(({ data }) => setD(data)).catch(() => setD(false)),
+    [id],
+  );
+  useEffect(() => { load(); }, [load]);
 
   if (d === null) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-natural-green" /></div>;
   if (d === false) return <Card className="text-center py-12"><p className="text-charcoal/60">Project not found.</p><Link to="/portal/projects" className="text-deep-forest-green hover:underline text-sm mt-3 inline-block">← Back</Link></Card>;
@@ -26,15 +36,62 @@ export default function ProjectOverview() {
   const doneCount = sections.filter((s) => s.state === "complete").length;
   const gotoSection = (slug) => navigate(`/portal/projects/${id}/assessment/${slug}`);
 
-  const submit = async () => {
+  const performSubmit = async () => {
     setSubmitting(true);
     try { const { data } = await api.post(`/client/projects/${id}/submit`); toast.success(`Submitted for review (v${data.version})`); load(); }
     catch (e) { toast.error(apiError(e.response?.data?.detail)); } finally { setSubmitting(false); }
   };
 
+  const prepareSubmit = async () => {
+    if (d.review_payment?.status === "paid") return performSubmit();
+    setSubmitting(true);
+    try {
+      const [{ data }, methodsResponse] = await Promise.all([api.get(`/client/projects/${id}/review-quote`), api.get("/payments/methods")]);
+      const methods = methodsResponse.data || {};
+      if (!methods.razorpay_enabled && !methods.qr_enabled) throw new Error("No payment method is currently available. Please contact Admin.");
+      setQuote(data); setPaymentMethods(methods); setPaymentMethod(methods.razorpay_enabled ? "razorpay" : "qr"); setQuoteOpen(true);
+    } catch (error) { toast.error(apiError(error.response?.data?.detail || error.message)); }
+    finally { setSubmitting(false); }
+  };
+
+  const payAndSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const { data: order } = await api.post(`/client/projects/${id}/payment-order`, { method: paymentMethod });
+      if (paymentMethod === "qr") { setQuoteOpen(false); setQrOrder(order); return; }
+      const result = await openRazorpayCheckout(order, { description: `${project.certification_type || "Certification"} project review`, prefill: {} });
+      await api.post("/payments/verify", result);
+      await api.post(`/client/projects/${id}/submit`);
+      toast.success("Payment verified and project submitted for review");
+      setQuoteOpen(false); await load();
+    } catch (error) {
+      const message = error.response?.data?.detail || error.message;
+      if (message !== "Payment cancelled.") toast.error(apiError(message));
+    } finally { setSubmitting(false); }
+  };
+
+  const submitQrPayment = async (utr) => {
+    if (!qrOrder) return;
+    setSubmitting(true);
+    try {
+      await api.post("/payments/qr-submit", { internal_id: qrOrder.internal_id, utr });
+      toast.success("Payment submitted for Admin verification");
+      setQrOrder(null);
+      await load();
+    } catch (error) { toast.error(apiError(error.response?.data?.detail || error.message)); }
+    finally { setSubmitting(false); }
+  };
+
+
   return (
     <div data-testid="project-overview">
-      <PageHeader title={project.name} subtitle={`${project.rating_system || project.project_type} · ${project.occupancy_type}-occupied`} action={<StatusBadge status={project.status} />} />
+      <PageHeader title={project.name} subtitle={`${project.certification_type || "IGBC"} · ${project.project_type} · ${project.occupancy_type}-occupied`} action={<StatusBadge status={project.status} />} />
+
+      {d.review_payment?.status === "paid" && (
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700" data-testid="review-payment-status">
+          <CreditCard className="h-3.5 w-3.5" /> Paid{d.review_payment?.transaction_id ? ` · ${d.review_payment.transaction_id}` : ""}
+        </div>
+      )}
 
       <div className="rounded-xl bg-warm-beige/60 border border-border px-4 py-2.5 text-xs text-charcoal/70 flex items-center gap-2 mb-5">
         <ShieldCheck className="h-4 w-4 text-natural-green" /> RES Internal / Preliminary Assessment — not an official IGBC certification.
@@ -53,13 +110,16 @@ export default function ProjectOverview() {
             <span className="font-medium text-charcoal">{d.official_record.decision === "certified" ? `Certified — ${d.official_record.band}` : "Not certified"}</span>
           </div>
           <div className="text-sm text-charcoal/70 mt-1.5">Final score <strong>{d.official_record.final_total}/{d.official_record.total_max}</strong>{d.official_record.certificate_number && <> · Certificate <strong>{d.official_record.certificate_number}</strong></>}</div>
-          {d.official_record.decision === "certified" && (d.official_record.certificate_pdf_url || d.official_record.docket_pdf_url) && (
+          {d.official_record.decision === "certified" && (d.official_record.certificate_pdf_url || d.official_record.docket_pdf_url || d.official_record.review_report_pdf_url) && (
             <div className="flex flex-wrap gap-2.5 mt-3">
               {d.official_record.certificate_pdf_url && (
                 <a href={d.official_record.certificate_pdf_url} target="_blank" rel="noreferrer" data-testid="download-certificate" className="inline-flex items-center gap-1.5 rounded-lg bg-natural-green text-deep-forest-green px-4 py-2 text-sm font-semibold hover:bg-deep-forest-green hover:text-off-white transition-colors"><Download className="h-4 w-4" /> Certificate (PDF)</a>
               )}
               {d.official_record.docket_pdf_url && (
                 <a href={d.official_record.docket_pdf_url} target="_blank" rel="noreferrer" data-testid="download-docket" className="inline-flex items-center gap-1.5 rounded-lg border border-deep-forest-green/40 text-deep-forest-green px-4 py-2 text-sm font-medium hover:bg-deep-forest-green/5 transition-colors"><Download className="h-4 w-4" /> Assessment docket</a>
+              )}
+              {d.official_record.review_report_pdf_url && (
+                <a href={d.official_record.review_report_pdf_url} target="_blank" rel="noreferrer" data-testid="download-review-report" className="inline-flex items-center gap-1.5 rounded-lg border border-deep-forest-green/40 text-deep-forest-green px-4 py-2 text-sm font-medium hover:bg-deep-forest-green/5 transition-colors"><Download className="h-4 w-4" /> Professional review report</a>
               )}
             </div>
           )}
@@ -112,11 +172,11 @@ export default function ProjectOverview() {
               {editable && (
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button onClick={() => gotoSection(currentSection.slug)} data-testid="overview-continue-btn"
-                    className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors">
+                    className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-5 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors">
                     {doneCount === 0 ? "Start assessment" : "Continue assessment"} <ArrowRight className="h-4 w-4" />
                   </button>
                   {allComplete && (
-                    <button onClick={submit} disabled={submitting} data-testid="overview-submit-btn"
+                    <button onClick={prepareSubmit} disabled={submitting} data-testid="overview-submit-btn"
                       className="inline-flex items-center gap-2 rounded-lg bg-turquoise text-deep-forest-green px-5 py-2.5 text-sm font-semibold hover:brightness-95 transition-all">
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
                     </button>
@@ -146,6 +206,23 @@ export default function ProjectOverview() {
           </div>
         </div>
       )}
+      {qrOrder && <QrPaymentDialog order={qrOrder} busy={submitting} onCancel={() => setQrOrder(null)} onSubmit={submitQrPayment} />}
+      {quoteOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4" onClick={() => !submitting && setQuoteOpen(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-5"><p className="text-xs font-semibold uppercase tracking-[.14em] text-[#667085]">Final submission</p><h2 className="mt-1 text-2xl font-semibold text-[#111827]">Review fee</h2><p className="mt-1 text-sm text-[#667085]">Calculated securely from certification type × project area.</p></div>
+            {quote?.custom_quote ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800"><div className="font-semibold">Custom quotation required</div><p className="mt-1">{quote.message}</p><p className="mt-2">Project area: {Number(quote.area_sqft || 0).toLocaleString("en-IN")} sq ft</p></div>
+            ) : (
+              <div className="divide-y divide-[#E4E7EC] rounded-xl border border-[#E4E7EC] px-4 text-sm"><FeeRow label={`${quote?.certification_type} · ${quote?.tier_label}`} value={money(quote?.subtotal_paise)} /><FeeRow label={`GST (${quote?.gst_rate}%)`} value={money(quote?.gst_paise)} /><FeeRow label="Total payable" value={money(quote?.total_paise)} strong /><div className="py-3 text-xs text-[#667085]">Payment is processed only through an Admin-enabled production payment method.</div><div className="py-3 text-xs text-[#667085]">Area used: {Number(quote?.area_sqft || 0).toLocaleString("en-IN")} sq ft</div></div>
+            )}
+            {!quote?.custom_quote && paymentMethods && <div className="mt-5"><div className="mb-2 text-sm font-medium text-[#172033]">Choose payment method</div><div className="grid grid-cols-2 gap-3">{paymentMethods.razorpay_enabled && <button type="button" onClick={() => setPaymentMethod("razorpay")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${paymentMethod === "razorpay" ? "border-[#27F580] bg-[#E9FFF2] text-[#172033]" : "border-[#E4E7EC] text-[#667085]"}`}>Razorpay</button>}{paymentMethods.qr_enabled && <button type="button" onClick={() => setPaymentMethod("qr")} className={`rounded-xl border px-4 py-3 text-sm font-semibold ${paymentMethod === "qr" ? "border-[#27F580] bg-[#E9FFF2] text-[#172033]" : "border-[#E4E7EC] text-[#667085]"}`}>QR / UPI</button>}</div></div>}
+            <div className="mt-5 flex gap-3"><button onClick={() => setQuoteOpen(false)} disabled={submitting} className="flex-1 rounded-lg border border-[#E4E7EC] px-4 py-3 text-sm font-semibold text-[#172033]">Cancel</button>{!quote?.custom_quote && <button onClick={payAndSubmit} disabled={submitting} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#27F580] px-4 py-3 text-sm font-semibold text-[#172033] hover:bg-[#20DB72] disabled:opacity-60">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} {paymentMethod === "qr" ? "Continue to QR" : "Pay & submit"}</button>}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+function FeeRow({ label, value, strong }) { return <div className={`flex items-center justify-between py-3 ${strong ? "font-semibold text-[#111827]" : "text-[#667085]"}`}><span>{label}</span><span>{value}</span></div>; }

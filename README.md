@@ -1,470 +1,321 @@
-RES Sustainability & Certification Platform
-A full-stack sustainability website and green-building certification workflow for Resilient Earth Solutions (RES). The application combines a public marketing website, an admin-managed CMS, sustainability tools, and separate workspaces for Clients, Reviewers, and Administrators.
+# ClimateWallah
 
-Assessment notice: Results produced inside the portal are RES internal/preliminary assessments. They are not an official IGBC certification unless an authorised final certificate is issued and recorded by the Administrator.
+ClimateWallah is a full-stack sustainability certification platform with a public website, CMS, client assessment workspace, professional reviewer marketplace, admin verification, online payments, earnings, and payouts.
 
-Contents
-Key features
+> Assessment notice: portal results are internal/preliminary assessments. They are not an official IGBC, WELL, or LEED certification unless an authorised administrator issues the final record.
 
-Roles and workflow
+## What is included
 
-Technology stack
+### Public website and CMS
 
-Project structure
+- Home, About, Services, Projects, Team, Events, Blog, Contact, and legal pages
+- Tools including the GHG emissions calculator
+- Book-a-demo and enquiry forms
+- Admin-managed website content, images, documents, and capability PDF
+- Responsive SaaS visual system using `#27F580`, `#172033`, white, and neutral greys
 
-Local setup
+### Client portal
 
-Environment variables
+- Account creation with a six-digit email OTP valid for five minutes
+- Project creation for Commercial, Residential, Hotel, and Hospital
+- Certification selection before project details: IGBC, WELL, LEED, or another admin-created type
+- Building details, area, geo-location, project team, privacy, and media
+- Sequential assessment sections; the next section unlocks only after the current mandatory requirements are complete
+- Evidence uploads stored in MongoDB GridFS
+- Area-based review quote, 18% GST, Razorpay Checkout, and server-side signature verification
+- Project status, reviewer comments, change requests, final result, docket, and certificate
 
-Email and OTP setup
+### Reviewer marketplace
 
-File storage
+- Public **Become a Reviewer** registration
+- Professional details, five-minute email OTP, KYC document upload, guidelines, and declaration
+- Admin approval, change request, or rejection
+- Monthly reviewer plan/recharge with 18% GST
+- Plan-expiry alerts for both reviewer and admin; expired reviewers cannot receive new assignments
+- Existing earnings remain available even after a plan expires
+- ₹299 base earning for every project finalised by an administrator
+- GST is added to reviewer earnings only when the reviewer marks themselves GST-registered and provides a valid GSTIN
+- Encrypted bank/UPI payout profile, earnings ledger, payout history, and notifications
 
-Testing
+### Admin certification workspace
 
-Production deployment
+- Certification type CRUD: add, edit, archive/delete, activate, order, colour, and price multiplier
+- Versioned checklist builder for each certification type and project type
+- Add, edit, delete, and reorder sections, mandatory requirements, optional credits, and point values
+- Draft and publish workflow; existing projects keep their checklist snapshot
+- Reviewer KYC verification, plan status, eligibility, workload, and assignment controls
+- Client review-fee settings, reviewer-plan settings, 18% GST, and editable area tiers
+- Reviewer earnings and month-end payouts through RazorpayX or manual bank transfer/UPI with UTR
 
-Troubleshooting
+## Main workflows
 
-Security checklist
+### Client project
 
-Project documentation
-
-Key features
-Public website
-Home, About, Services, Projects, Team, Events, Blog/Resources, Contact, and Legal pages
-
-Tools and calculators, including the GHG emissions calculator
-
-Book-a-demo/consultation and enquiry forms
-
-Downloadable capability profile
-
-Responsive navigation with Services, Tools, and Events menus
-
-SEO settings, sitemap, and robots endpoints
-
-Website CMS
-Administrators can manage:
-
-Services and service details
-
-Public projects and case studies
-
-Team members
-
-Blog posts, resources, and events
-
-Enquiries, leads, and consultation bookings
-
-Contact details, website settings, SEO, homepage content, and legal pages
-
-Images, documents, and the capability PDF
-
-Certification portal
-Client registration with a six-digit email OTP
-
-OTP expiry, resend cooldown, attempt limits, and verified accounts
-
-Role-based login for Client, Reviewer, and Admin
-
-Project types: Residential, Hotel, Commercial, and Hospital
-
-Project details, team details, privacy settings, media, and geolocation
-
-Sequential assessment sections with auto-save
-
-Evidence uploads for individual criteria
-
-Claimed, reviewer-recommended, and admin-final scores
-
-Project timeline and status tracking
-
-Reviewer assignment, comments, approval/rejection, and change requests
-
-Admin-managed checklists, criteria, maximum points, and certification rules
-
-PDF submission dockets and certificate records
-
-MongoDB GridFS-backed image and document storage
-
-Roles and workflow
-Role Main responsibilities
-Client Registers through OTP, creates projects, completes assessment sections, uploads evidence, submits projects, and responds to requested changes.
-Reviewer Reviews assigned projects and evidence, records recommendations/comments, requests changes, and forwards completed reviews to Admin.
-Admin Manages the website and portal, creates Reviewers, assigns projects, manages checklists, makes the final decision, and issues certification records.
-The typical project flow is:
-
+```mermaid
 flowchart TD
-A[Client draft] --> B[Client submission]
-B --> C[Admin triage and reviewer assignment]
-C --> D[Reviewer assessment]
-D -->|Changes required| E[Client revision and resubmission]
-E --> D
-D -->|Recommended| F[Admin final review]
-F --> G[Certified or rejected]
-The client completes assessment categories one page at a time:
+    A[Create client account] --> B[Verify email OTP]
+    B --> C[Choose certification]
+    C --> D[Enter project and area]
+    D --> E[Complete sections sequentially]
+    E --> F[Receive GST quote and pay]
+    F --> G[Submit for review]
+    G --> H[Reviewer review]
+    H -->|Changes needed| E
+    H -->|Forward| I[Admin final decision]
+    I --> J[Certificate or rejection]
+```
 
-Sustainable Design
+### Reviewer lifecycle
 
-Water Conservation
+```mermaid
+flowchart TD
+    A[Become a Reviewer] --> B[Email OTP]
+    B --> C[KYC documents and declaration]
+    C --> D[Admin verification]
+    D -->|Approved| E[Buy monthly plan]
+    E --> F[Receive assignments]
+    F --> G[Complete reviews]
+    G --> H[₹299 earnings ledger]
+    H --> I[Admin month-end payout]
+```
 
-Energy Efficiency
+## Default billing rules
 
-Materials and Resources
+All client charges and reviewer subscription charges include 18% GST.
 
-Resident Health and Wellbeing
+| Project target area | Client review fee before GST |
+| --- | ---: |
+| Up to 1 lakh sq ft | ₹999 |
+| Above 1–3 lakh sq ft | ₹2,999 |
+| Above 3–5 lakh sq ft | ₹4,999 |
+| Above 5–10 lakh sq ft | ₹5,999 |
+| Above 10 lakh sq ft | Custom quotation |
 
-Innovation and Design
+Defaults are database-backed and editable from the Admin Billing page:
 
-The next section unlocks only after the current section's mandatory requirements are completed and saved. Category names, criteria, point limits, and certification thresholds are controlled by the active rating template.
+- Reviewer monthly plan: ₹299 + 18% GST
+- Reviewer earning per completed/finalised project: ₹299
+- Reviewer earning GST: 18% only for a valid GST-registered payout profile
 
-Technology stack
-Layer Technology
-Frontend React, React Router, CRACO, Tailwind CSS, Axios, Radix UI, Lucide Icons
-Maps Leaflet
-Backend Python, FastAPI, Uvicorn, Pydantic
-Database MongoDB with Motor
-File storage MongoDB GridFS
-Authentication JWT, HTTP-only cookies, CSRF protection, bcrypt
-Email SMTP (GoDaddy Professional Email powered by Titan)
-Reports ReportLab PDF generation
-Testing Pytest and React Testing Library
-Project structure
-Path Purpose
-frontend/src/ React website, CMS, and Client/Reviewer/Admin portal UI
-frontend/src/lib/api.js API clients, CSRF handling, backend URL, and uploaded-file URL normalisation
-backend/server.py FastAPI application and public/CMS routes
-backend/portal.py Client, Reviewer, Admin, assessment, and certification APIs
-backend/auth.py Admin authentication, cookies, JWT, CSRF, and lockout logic
-backend/portal_auth.py Portal role-based access control
-backend/rating_template.py Checklist templates, scoring, and certification logic
-backend/email_service.py OTP and notification email delivery
-backend/app/api/ Modular API routers, including files and GHG tools
-backend/app/services/ GridFS, PDF, and calculation services
-backend/scripts/ Maintenance and migration scripts
-backend/tests/ Backend and portal regression tests
-docs/ Product, workflow, API, design, and rating documentation
-Local setup
-Prerequisites
-Install the following:
+## Technology
 
-Python 3.11 (recommended; do not use Python 3.14 for the current pinned dependencies)
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, React Router, Tailwind CSS, Axios, Radix UI, Lucide |
+| Backend | Python, FastAPI, Uvicorn, Pydantic |
+| Database | MongoDB and Motor |
+| Files | MongoDB GridFS |
+| Authentication | JWT, HTTP-only cookies, CSRF, bcrypt |
+| Email | SMTP (GoDaddy/Titan supported) |
+| Payments | Razorpay Checkout and RazorpayX |
+| Reports | ReportLab PDFs |
 
-Node.js 20 LTS and npm
+## Project structure
 
-MongoDB 7+ locally, or a MongoDB Atlas connection string
+| Path | Purpose |
+| --- | --- |
+| `frontend/src/` | Website, CMS, client/reviewer/admin interfaces |
+| `backend/server.py` | FastAPI application and public/CMS endpoints |
+| `backend/portal.py` | Client, reviewer, project, and final certification APIs |
+| `backend/marketplace.py` | Reviewer onboarding, dynamic checklists, billing, payments, earnings, payouts |
+| `backend/app/services/` | GridFS, certification templates, pricing, Razorpay, encryption, PDFs |
+| `backend/tests/` | Backend and marketplace tests |
+| `deploy/` | Production systemd, Nginx, and update templates |
+| `docs/` | Detailed product and technical documentation |
 
-Git
+## Local setup
 
-1. Clone the repository
-   git clone <YOUR_REPOSITORY_URL>
-   cd <YOUR_PROJECT_FOLDER>
-2. Start the backend on Windows
-   cd backend
-   py -3.11 -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   python -m pip install --upgrade pip
-   pip install -r requirements.txt
-   Create backend/.env using the example in Environment variables, then run:
+Use Python 3.11 or 3.12, Node.js 20 LTS, npm, and MongoDB 7+.
 
-python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
-Backend URLs:
+### Backend
 
-API health: http://127.0.0.1:8000/api/health
-
-Swagger API docs: http://127.0.0.1:8000/docs
-
-ReDoc: http://127.0.0.1:8000/redoc
-
-3. Start the frontend on Windows
-   Open a second terminal:
-
-cd frontend
-npm install --legacy-peer-deps
-Create frontend/.env:
-
-REACT_APP_BACKEND_URL=http://127.0.0.1:8000
-Then run:
-
-npm start
-Open http://localhost:3000.
-
---legacy-peer-deps is currently required because the installed react-day-picker release declares an older date-fns peer range than the version used by this project.
-
-macOS/Linux commands
+```bash
 cd backend
-python3.11 -m venv .venv
-source .venv/bin/activate
+python -m venv venv
+
+# Windows PowerShell
+./venv/Scripts/Activate.ps1
+
+# macOS/Linux
+source venv/bin/activate
+
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+cp .env.example .env
 python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
-In another terminal:
+```
 
+Health check: `http://127.0.0.1:8000/api/health`
+
+### Frontend
+
+```bash
 cd frontend
 npm install --legacy-peer-deps
+cp .env.example .env
 npm start
-Environment variables
-Create backend/.env. Never commit this file.
+```
 
-# Application
+Open `http://localhost:3000`.
 
-FRONTEND_URL=http://localhost:3000
-CORS_ORIGINS=http://localhost:3000
-UPLOAD_MAX_SIZE_MB=15
+## Environment configuration
 
-# MongoDB
+Use [backend/.env.example](backend/.env.example) and [frontend/.env.example](frontend/.env.example). Never commit the real `.env` files.
 
-MONGO_URL=mongodb://127.0.0.1:27017
-DB_NAME=earth_db
+Generate secrets:
 
-# Authentication
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
-JWT_SECRET=REPLACE_WITH_A_LONG_RANDOM_SECRET
-JWT_EXPIRE_MINUTES=480
-COOKIE_SECURE=false
+For GoDaddy Professional Email powered by Titan:
 
-# Initial admin (used only when the admin collection is first seeded)
-
-ADMIN_LOGIN_ID=admin
-ADMIN_EMAIL=admin@example.com
-ADMIN_INITIAL_PASSWORD=REPLACE_WITH_A_STRONG_INITIAL_PASSWORD
-
-# Email / OTP — GoDaddy Professional Email powered by Titan
-
-EMAIL_ENABLED=true
+```dotenv
 SMTP_HOST=smtpout.secureserver.net
 SMTP_PORT=465
-SMTP_USERNAME=noreply@climatewallah.com
-SMTP_PASSWORD=REPLACE_WITH_THE_MAILBOX_PASSWORD
-SMTP_FROM_EMAIL=noreply@climatewallah.com
-SMTP_FROM_NAME=Climate Wallah
-SMTP_REPLY_TO=noreply@climatewallah.com
-SMTP_USE_TLS=false
 SMTP_USE_SSL=true
-SMTP_TIMEOUT_SECONDS=20
+SMTP_USE_TLS=false
+SMTP_USERNAME=noreply@climatewallah.com
+SMTP_FROM_EMAIL=noreply@climatewallah.com
+```
 
-# Optional enquiry recipient
+`SMTP_PASSWORD` is the mailbox password, not necessarily the GoDaddy account password. Do not add spaces unless they are genuinely part of the password.
 
-ENQUIRY_NOTIFY_EMAIL=noreply@climatewallah.com
-Generate a strong JWT secret with:
+## Razorpay configuration
 
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-For production, update at minimum:
+1. Create Razorpay test credentials first.
+2. Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
+3. Create a payment webhook to `https://climatewallah.com/api/webhooks/razorpay`.
+4. Subscribe to `payment.captured`, `payment.failed`, and `order.paid`.
+5. Put its secret in `RAZORPAY_PAYMENT_WEBHOOK_SECRET`.
+6. Configure RazorpayX account/fund-transfer access and `RAZORPAYX_ACCOUNT_NUMBER`.
+7. Create the RazorpayX webhook at `https://climatewallah.com/api/webhooks/razorpayx`.
+8. Put its secret in `RAZORPAYX_WEBHOOK_SECRET`.
+9. Set `PAYMENTS_ENABLED=true` only after a successful end-to-end test.
 
-FRONTEND_URL=https://climatewallah.com
-CORS_ORIGINS=https://climatewallah.com,https://www.climatewallah.com
-COOKIE_SECURE=true
-Create frontend/.env:
+Checkout and webhook signatures are verified server-side. Payment application is idempotent, so simultaneous Checkout verification and webhooks cannot extend a plan twice.
 
-REACT_APP_BACKEND_URL=http://127.0.0.1:8000
-For a separate production API subdomain:
+If RazorpayX is not configured, the Admin Billing page supports a manual payout workflow: transfer by bank/UPI, enter the UTR, and mark the payout paid.
 
-REACT_APP_BACKEND_URL=https://api.climatewallah.com
-Environment changes require a backend restart. A changed REACT_APP_BACKEND_URL also requires rebuilding the frontend.
+## Production deployment on Ubuntu
 
-Email and OTP setup
-The configured mailbox is:
+The included templates assume:
 
-noreply@climatewallah.com
-Use the password created for this GoDaddy/Titan mailbox as SMTP_PASSWORD. Do not use the GoDaddy account password unless it is also the mailbox password.
+- Repository: `/var/www/climatewallah`
+- Backend virtual environment: `/var/www/climatewallah/backend/venv`
+- Service user: `climatewallah`
+- Domain: `climatewallah.com`
+- FastAPI: `127.0.0.1:8000`
 
-Port 465 uses implicit SSL: SMTP_USE_SSL=true and SMTP_USE_TLS=false.
+### Install and build
 
-Do not add spaces inside the password. If the real password contains spaces or special characters, wrap the complete value in quotes.
+```bash
+cd /var/www/climatewallah/backend
+python3 -m venv venv
+./venv/bin/pip install --upgrade pip
+./venv/bin/pip install -r requirements.txt
+cp .env.example .env
+nano .env
 
-SMTP_FROM_EMAIL should normally match SMTP_USERNAME.
+cd /var/www/climatewallah/frontend
+npm ci --legacy-peer-deps
+REACT_APP_BACKEND_URL=https://climatewallah.com CI=true npm run build
+```
 
-SMTP_REPLY_TO can be changed to support@climatewallah.com after that mailbox or alias exists.
+### Service and Nginx
 
-Keep the OTP validity at five minutes and never log the OTP in production.
+```bash
+sudo groupadd --system climatewallah 2>/dev/null || true
+sudo useradd --system --gid climatewallah --home-dir /var/www/climatewallah --shell /usr/sbin/nologin climatewallah 2>/dev/null || true
+sudo chown -R climatewallah:climatewallah /var/www/climatewallah/backend
 
-After configuration, restart the backend and register with a test email. A successful request should return 200 OK, and the recipient should receive the verification email. If the backend logs Email not configured, verify that backend/.env exists and that the running email service reads the SMTP variables above.
+sudo cp deploy/climatewallah.service /etc/systemd/system/climatewallah.service
+sudo cp deploy/nginx-climatewallah.conf /etc/nginx/sites-available/climatewallah
+sudo ln -sf /etc/nginx/sites-available/climatewallah /etc/nginx/sites-enabled/climatewallah
 
-File storage
-All uploaded images, PDFs, project evidence, and generated certificates are stored in MongoDB GridFS. The public URL format remains:
+sudo systemctl daemon-reload
+sudo systemctl enable --now climatewallah
+sudo nginx -t
+sudo systemctl reload nginx
+```
 
-/api/uploads/images/<filename>
-/api/uploads/documents/<filename>
-/api/uploads/evidence/<project_id>/<filename>
-/api/uploads/certificates/<filename>
-The frontend must build uploaded-file links through fileUrl() from frontend/src/lib/api.js. This ensures old database records that contain localhost:3000/api/uploads/... are redirected to the configured backend origin instead of React's 404 page.
+### HTTPS
 
-To migrate legacy files from local upload folders to GridFS:
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d climatewallah.com -d www.climatewallah.com
+```
 
+Verify:
+
+```bash
+systemctl status climatewallah --no-pager -l
+journalctl -u climatewallah -n 100 --no-pager
+curl http://127.0.0.1:8000/api/health
+curl https://climatewallah.com/api/health
+```
+
+The Nginx template fixes SPA routes while proxying `/api/` directly to FastAPI, including GridFS evidence and certificate URLs.
+
+## Testing
+
+```bash
+# Fast unit checks
 cd backend
-python scripts/migrate_local_uploads_to_gridfs.py
-Take a MongoDB backup and verify all file URLs before using any migration cleanup option.
+pytest -q tests/test_marketplace_unit.py
 
-Testing
-Backend
-Start MongoDB and the backend, then run:
-
-cd backend
+# Full backend suite (requires a running test deployment and seeded accounts)
 pytest -q
-Frontend
-cd frontend
-npm test -- --watchAll=false
-Production frontend build
-cd frontend
-npm run build
-Before release, test at least:
 
-Client registration, OTP verification, resend, login, and logout
+# Strict frontend production build
+cd ../frontend
+CI=true npm run build
+```
 
-Admin and Reviewer login/permissions
+## Important security rules
 
-Project creation and geolocation
+- Never commit SMTP passwords, MongoDB credentials, JWT secrets, Razorpay secrets, webhook secrets, or encryption keys.
+- Use HTTPS and `COOKIE_SECURE=true` in production.
+- Restrict CORS to the production domains.
+- Do not expose MongoDB port `27017` publicly.
+- Keep `DATA_ENCRYPTION_KEY` backed up securely; losing it makes encrypted reviewer payout details unreadable.
+- Use backend role checks and CSRF; never trust a browser-supplied role or payment amount.
+- Keep webhook signature verification enabled.
+- Back up MongoDB, including the `uploads_fs.files` and `uploads_fs.chunks` GridFS collections.
 
-Sequential section locking/unlocking and auto-save
+## Troubleshooting
 
-Claimed, recommended, and final score calculations
+### Nginx shows 502 Bad Gateway
 
-Evidence upload, preview, download, review, and deletion
+```bash
+systemctl status climatewallah --no-pager -l
+journalctl -u climatewallah -n 100 --no-pager
+curl http://127.0.0.1:8000/api/health
+```
 
-Reviewer assignment, change requests, and forwarding
+`status=217/USER` means the `User=` or `Group=` in the systemd file does not exist. Create the `climatewallah` system account, set ownership, reload systemd, and restart.
 
-Admin final decision and generated PDFs
+### Evidence opens the React 404 page
 
-CMS CRUD, contact form, enquiry notification, and responsive layout
+Use `resolveUploadUrl()` from `frontend/src/lib/api.js` for file links and keep the Nginx proxy as `location ^~ /api/`. The `^~` prevents image/PDF API URLs from being captured by the static-asset regex.
 
-Production deployment
-A practical single-server deployment uses:
+### Email is reported as not configured
 
-Ubuntu LTS VPS
+Confirm `backend/.env` exists, every setting is on its own line, SSL/TLS are not both enabled, and the backend was restarted after the change.
 
-Nginx for HTTPS, static frontend delivery, and reverse proxying
+### Frontend dependency conflict
 
-Uvicorn workers managed by systemd
-
-MongoDB with authentication and backups, or MongoDB Atlas
-
-Let's Encrypt SSL certificates
-
-DNS managed at GoDaddy
-
-Recommended routing:
-
-URL Destination
-https://climatewallah.com/ React production build
-https://climatewallah.com/api/ FastAPI on 127.0.0.1:8000
-https://climatewallah.com/docs Disable publicly or protect in production
-Deployment order:
-
-Point the domain's A records to the VPS IP.
-
-Install Python 3.11, Node.js 20, Nginx, and MongoDB or configure Atlas.
-
-Copy the project and create the production backend/.env.
-
-Install backend dependencies in a virtual environment.
-
-Build the frontend with the production API URL.
-
-Run FastAPI through systemd and proxy /api/ through Nginx.
-
-Enable HTTPS with Certbot.
-
-Configure automated MongoDB backups and service monitoring.
-
-Run the complete release checklist before handing the site to the client.
-
-Do not expose MongoDB port 27017 publicly. Allow only SSH, HTTP, and HTTPS in the VPS firewall unless another port is explicitly required.
-
-Troubleshooting
-Leaflet module not found
-cd frontend
-npm install leaflet@1.9.4 --legacy-peer-deps
-Restart the frontend after installation.
-
-Uploaded evidence opens the React 404 page
-Confirm:
-
-REACT_APP_BACKEND_URL=http://127.0.0.1:8000
-Use fileUrl(file.url) for evidence links, and verify the same URL directly on backend port 8000.
-
-401 Unauthorized from /api/auth/me
-A 401 before login is normal. If it continues after login, check cookies, withCredentials: true, CORS_ORIGINS, COOKIE_SECURE, and the CSRF header.
-
-For local HTTP development, use:
-
-COOKIE_SECURE=false
-CORS_ORIGINS=http://localhost:3000
-SMTP says email is not configured
-Ensure the file is exactly backend/.env.
-
-Ensure every variable is on its own line.
-
-Remove accidental duplicated text such as 20SMTP_TIMEOUT_SECONDS=20.
-
-Restart Uvicorn after editing .env.
-
-Confirm the Titan mailbox password by signing in to webmail.
-
-Python dependency resolution is too deep
-Delete the old virtual environment and recreate it with Python 3.11:
-
-cd backend
-deactivate
-Remove-Item -Recurse -Force .venv
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-Frontend dependency conflict (ERESOLVE)
-cd frontend
+```bash
 npm install --legacy-peer-deps
-Security checklist
-Never commit .env, SMTP passwords, JWT secrets, database credentials, or test accounts.
+```
 
-Replace the seeded admin password immediately after first login.
+## Ownership
 
-Use HTTPS and COOKIE_SECURE=true in production.
+Private client-owned project. All rights reserved.
 
-Restrict CORS to the real frontend domains.
+## Reviewer testing without Razorpay
 
-Keep role checks on the backend; never trust a role sent by the browser.
+The final code includes a non-monetary reviewer/demo payment flow. See `docs/REVIEW_TEST_PAYMENT_MODE.md`.
 
-Keep CSRF validation enabled for state-changing cookie-authenticated requests.
-
-Validate uploaded file type and size, and scan uploads if required by the organisation.
-
-Rate-limit authentication, OTP, resend, contact, and upload endpoints.
-
-Store only hashed passwords and OTPs.
-
-Back up MongoDB, including GridFS collections, and test restoration.
-
-Keep official certification records and audit logs immutable or tightly controlled.
-
-Visual system
-The portal uses the following professional SaaS palette:
-
-Token Colour
-Primary accent #27F580
-Primary hover #20DB72
-Deep navy #172033
-Heading #111827
-Secondary text #667085
-Page background #F6F8FA
-Card background #FFFFFF
-Light accent background #E9FFF2
-Border #E4E7EC
-Information #3B82F6
-Warning #F59E0B
-Error #EF4444
-Dark green is not used in the portal UI. Bright green is reserved for buttons, progress, active states, icons, and success indicators; normal text on light backgrounds remains navy or charcoal for accessible contrast.
-
-Project documentation
-docs/RES_COMPLETE_REQUIREMENTS.md — product requirements and scope
-
-docs/RES_CERTIFICATION_WORKFLOW.md — roles and status workflow
-
-docs/RES_API_AND_DATABASE.md — API and database reference
-
-docs/RES_RATING_RULES.md — scoring and certification rules
-
-docs/RES_DESIGN_SYSTEM.md — design tokens and UI guidance
-
-Ownership and licence
-This is a private, client-owned project. All rights are reserved. Do not distribute source code, company material, uploaded evidence, rating content, or credentials without written permission
+For reviewer testing use `PAYMENT_TEST_MODE=true` and `PAYMENTS_ENABLED=false`. The UI clearly marks the flow as TEST MODE and no real money moves. Test-derived reviewer earnings are kept out of the real/manual payout queue.

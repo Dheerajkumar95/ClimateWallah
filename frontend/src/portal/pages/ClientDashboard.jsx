@@ -33,7 +33,7 @@ export default function ClientDashboard() {
       <PageHeader
         title={`Welcome, ${user?.name?.split(" ")[0] || "there"}`}
         subtitle="Track and manage your green building certification projects."
-        action={<Link to="/portal/projects/new" data-testid="dash-create-btn" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"><PlusCircle className="h-4 w-4" /> New Project</Link>}
+        action={<Link to="/portal/projects/new" data-testid="dash-create-btn" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors"><PlusCircle className="h-4 w-4" /> New Project</Link>}
       />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Stat Icon={FolderKanban} label="Projects" value={projects.length} />
@@ -48,7 +48,7 @@ export default function ClientDashboard() {
       {projects.length === 0 ? (
         <Card className="text-center py-12">
           <p className="text-charcoal/60 mb-4">You have no certification projects yet.</p>
-          <Link to="/portal/projects/new" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-natural-green transition-colors"><PlusCircle className="h-4 w-4" /> Create your first project</Link>
+          <Link to="/portal/projects/new" className="inline-flex items-center gap-2 rounded-lg bg-deep-forest-green text-off-white px-4 py-2.5 text-sm font-medium hover:bg-[#20DB72] transition-colors"><PlusCircle className="h-4 w-4" /> Create your first project</Link>
         </Card>
       ) : (
         <div className="space-y-3">

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Home, Info, Wrench, FolderKanban, Users, FileText, Mail,
   Image, FileDown, Settings, Search, Scale, KeyRound, LogOut, Menu, X, Leaf, ChevronRight,
   Building2, Workflow, Compass, Gauge, BookOpen, Handshake, CalendarDays, CalendarCheck, UserSquare,
-  Award, UserCog, ListChecks,
+  Award, UserCog, ListChecks, Layers3, UserCheck, BadgeIndianRupee, ClipboardList, History,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -42,6 +42,11 @@ const CERT_NAV = [
   { to: "/admin/certification/projects", label: "All Projects", Icon: Award },
   { to: "/admin/certification/clients", label: "Clients", Icon: UserCog },
   { to: "/admin/certification/reviewers", label: "Reviewers", Icon: ListChecks },
+  { to: "/admin/certification/reviewer-applications", label: "Reviewer Applications", Icon: UserCheck },
+  { to: "/admin/certification/types", label: "Certification Types", Icon: Layers3 },
+  { to: "/admin/certification/checklists", label: "Checklist Builder", Icon: ClipboardList },
+  { to: "/admin/certification/billing", label: "Billing & Payouts", Icon: BadgeIndianRupee },
+  { to: "/admin/certification/audit", label: "Audit Trail", Icon: History },
 ];
 
 export function AdminLayout() {
@@ -58,7 +63,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-off-white flex">
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-deep-forest-green text-off-white flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-[#172033] text-white flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="px-6 h-20 border-b border-off-white/10 flex flex-col justify-center">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -70,7 +75,7 @@ export function AdminLayout() {
         </div>
         <div className="px-3 pt-3">
           <NavLink to="/admin" end onClick={() => setOpen(false)} data-testid="admin-switch-workspace"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-turquoise/15 text-deep-forest-green hover:bg-turquoise/25 transition-colors">
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-[#27F580] text-[#172033] hover:bg-[#20DB72] transition-colors">
             <Workflow className="h-4 w-4" /> Switch Workspace
           </NavLink>
         </div>
