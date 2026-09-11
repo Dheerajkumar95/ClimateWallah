@@ -10,7 +10,6 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter,BackgroundTasks, HTTPException, Depends, Request, Response, UploadFile, File, Form
-from openai import project
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from database import db
